@@ -85,7 +85,8 @@ lib/
 
 ## 3. Datamodell (Domain)
 
-Reenumulbare modeller (implementeres med `freezed` for `copyWith`/`==`/`hashCode`).
+Reenumulbare modeller med `copyWith`/`==`/`hashCode` (implementert som vanlige
+Dart-klasser; kan eventuelt migreres til `freezed` senere uten å endre API-et).
 
 ```dart
 /// En bok om én eller flere hytter.
@@ -103,10 +104,12 @@ class Cabin {
   final String slug;
   final String name;
   final String? location;
+  final String description;      // hovedbeskrivelse = brødtekst i cabin.md
   final Section startRoutines;   // typisk avkrysningslister
   final Section stopRoutines;
-  final List<Section> sections;  // ordinære, ordnede seksjoner (beskrivelse, tips…)
+  final List<Section> sections;  // ordinære tilleggsseksjoner (notater, medier, tips…)
   final List<Story> stories;
+  final int order;               // rekkefølge blant hytter i boka
 }
 
 /// En fritekst-seksjon med Markdown + bilder.

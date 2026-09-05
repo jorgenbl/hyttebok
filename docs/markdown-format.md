@@ -67,12 +67,12 @@ Felles felt (valgfri der ikke angitt):
 
 ```yaml
 ---
-# Bok (book.md)
+# Bok (book.md) – forside/intro ligger som brødtekst under frontmatter
 type: book
 title: Sommehytta
-intro: "Velkommen til boka vår."
-cover: images/fasade.png
-version: 1            # formatversjon (for fremtidskompatibilitet)
+cover: images/fasade.png    # valgfritt
+version: 1                  # formatversjon (for fremtidskompatibilitet)
+updated: "2026-09-05T12:00:00.000"
 
 # Hytte (cabins/<x>/cabin.md)
 type: cabin
@@ -93,6 +93,7 @@ title: Første jul
 date: 2023-12-23
 author: Jorgen & Ingrid
 images: [images/2023-jul/peisen.jpg]
+order: 0
 ---
 ```
 
