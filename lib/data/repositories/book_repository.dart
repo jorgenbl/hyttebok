@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+
 import '../../domain/models/book.dart';
 import '../../domain/models/book_meta.dart';
 import '../services/file_storage_service.dart';
@@ -27,4 +31,19 @@ class BookRepository {
 
   /// Slett en bok.
   Future<void> delete(String slug) => _storage.deleteBook(slug);
+
+  /// Løser opp en relativ bildesti (f.eks. `images/foo.jpg`) til en absolutt
+  /// sti dersom filen finnes; ellers `null`. Brukes av Markdown-forhåndsvisning.
+  String? resolveImagePath(String bookSlug, String relativePath) {
+    if (relativePath.isEmpty) return null;
+    final uri = Uri.tryParse(relativePath);
+    if (uri != null && (uri.isScheme('http') || uri.isScheme('data'))) {
+      return null;
+    }
+    final relative = (uri != null && uri.path.isNotEmpty)
+        ? uri.path
+        : relativePath;
+    final file = File(p.join(_storage.bookRootPath(bookSlug), relative));
+    return file.existsSync() ? file.path : null;
+  }
 }

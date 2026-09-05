@@ -34,6 +34,9 @@ class FileStorageService {
   Directory _bookDir(String slug) =>
       Directory(p.join(_baseDirectory.path, slug));
 
+  /// Absolutt mappe for boken (brukes til å løse opp lokale bilder).
+  String bookRootPath(String slug) => p.join(_baseDirectory.path, slug);
+
   /// Oppretter en tom bok og returnerer slug.
   ///
   /// Sørger for at slug er unik ved å suffikse `-2`, `-3`, … ved kollisjon.
@@ -71,7 +74,11 @@ class FileStorageService {
       final updatedAt =
           _parseDateTime(fm.meta['updated']) ?? bookFile.lastModifiedSync();
       metas.add(
-        BookMeta(slug: p.basename(entity.path), title: title, updatedAt: updatedAt),
+        BookMeta(
+          slug: p.basename(entity.path),
+          title: title,
+          updatedAt: updatedAt,
+        ),
       );
     }
     metas.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
@@ -235,7 +242,9 @@ class FileStorageService {
     for (final entity in cabinDir.listSync()) {
       if (entity is! File || !entity.path.endsWith('.md')) continue;
       final base = p.basenameWithoutExtension(entity.path);
-      if (base == 'cabin' || base == 'start-rutiner' || base == 'steng-rutiner') {
+      if (base == 'cabin' ||
+          base == 'start-rutiner' ||
+          base == 'steng-rutiner') {
         continue;
       }
       sections.add(_readSectionFile(entity, base));

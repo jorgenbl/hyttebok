@@ -38,6 +38,10 @@ dependencies:
   # Filsystem- og format-hjelpere (local-first lagring).
   path: ^1.9.0
   yaml: ^3.1.2
+  go_router: ^18.0.1
+  provider: ^6.1.5+1
+  flutter_markdown: ^0.7.7+1
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:

@@ -1,0 +1,96 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../../../core/utils/format.dart';
+import '../../../core/widgets/dialogs.dart';
+import '../../../core/widgets/empty_state.dart';
+import '../../../data/repositories/book_repository.dart';
+import 'library_view_model.dart';
+
+/// Biblioteket: listen med hyttebøker.
+class LibraryView extends StatelessWidget {
+  const LibraryView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final repo = context.read<BookRepository>();
+    return ChangeNotifierProvider(
+      create: (_) => LibraryViewModel(repo)..load(),
+      child: const _LibraryBody(),
+    );
+  }
+}
+
+class _LibraryBody extends StatelessWidget {
+  const _LibraryBody();
+
+  Future<void> _newBook(BuildContext context) async {
+    final vm = context.read<LibraryViewModel>();
+    final title = await showTextInputDialog(
+      context,
+      title: 'Ny hyttebok',
+      label: 'Navn på boka',
+      hint: 'f.eks. Sommehytta',
+    );
+    if (title == null) return;
+    final slug = await vm.createBook(title);
+    if (context.mounted) context.go('/book/$slug');
+  }
+
+  Future<void> _delete(
+    BuildContext context,
+    LibraryViewModel vm,
+    String slug,
+    String title,
+  ) async {
+    final ok = await showConfirmDialog(
+      context,
+      title: 'Slett bok',
+      message: 'Slette «$title»? Dette kan ikke angres.',
+    );
+    if (ok) await vm.deleteBook(slug);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = context.watch<LibraryViewModel>();
+    final books = vm.books;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Hyttebøker')),
+      body: books.isEmpty
+          ? const EmptyState(
+              icon: Icons.menu_book,
+              message: 'Ingen hyttebøker ennå.\nTrykk på + for å opprette din første bok.',
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.only(bottom: 96),
+              itemCount: books.length,
+              itemBuilder: (context, index) {
+                final meta = books[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  child: ListTile(
+                    onTap: () => context.push('/book/${meta.slug}'),
+                    onLongPress: () =>
+                        _delete(context, vm, meta.slug, meta.title),
+                    leading: const Icon(Icons.menu_book),
+                    title: Text(meta.title),
+                    subtitle: Text('Sist endret ${formatDate(meta.updatedAt)}'),
+                    trailing: const Icon(Icons.chevron_right),
+                  ),
+                );
+              },
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _newBook(context),
+        tooltip: 'Ny bok',
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
