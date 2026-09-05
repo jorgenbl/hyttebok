@@ -4,6 +4,12 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Hyttebok bruker kameraet for å ta opp bilder av hytta som lagres i boken.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Hyttebok trenger tilgang til bildene dine for å legge dem inn i boken.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Hyttebok kan lagre bilder i galleriet.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

@@ -107,18 +107,32 @@ Mål: et solid, testbart og CI-klar grunnlag.
 ### Fase 1 – MVP: kjernen boken
 Mål: lage og redigere en bok med én eller flere hytter, helt lokalt.
 
-- [ ] **Lagringsmotor:** mappebasert filio (opprette/bok, lese/skrive seksjoner som `.md` med frontmatter, lagre bilder i `images/`).
-- [ ] **Datamodell + Repositorier:** `BookRepository`, `CabinRepository` (eller ett `BookRepository`) over fil-tjenesten.
-- [ ] **UI – Bibliotek:** liste bøker, opprett ny, slett, åpne.
-- [ ] **UI – Hytte:** liste hytter i en bok, opprett/slett/omnavn, redigere navn/sted.
-- [ ] **UI – Editor:** Markdown-kilderedigering + forhåndsvisning (skift mellom «Rediger»/«Forhåndsvis»). Støtter avkrysningslister.
-- [ ] **UI – Bilder:** ta opp (kamera) / velge (galleri), lagre i boken, innsette i seksjon/historie.
-- [ ] **Navigasjon:** `go_router` med `StatefulShellRoute` (bunnnav «Bøker»/«Innstillinger»).
-- [ ] **Tester:** enhetstester for lagringsmotor + Repositorier; widget-tester for editor og bibliotek.
+- [x] **Lagringsmotor:** mappebasert filio (opprette/bok, lese/skrive seksjoner som `.md` med frontmatter, lagre bilder i `images/`).
+- [x] **Datamodell + Repositorier:** ett `BookRepository` over fil-tjenesten.
+- [x] **UI – Bibliotek:** liste bøker, opprett ny, slett, åpne.
+- [x] **UI – Hytte:** liste hytter i en bok, opprett/slett/omnavn, redigere navn/sted.
+- [x] **UI – Editor:** Markdown-kilderedigering + forhåndsvisning (skift mellom «Rediger»/«Forhåndsvis»). Støtter avkrysningslister.
+- [x] **UI – Bilder:** ta opp (kamera) / velge (galleri), lagre i boken, innsette i seksjon/historie. *(Fase 1b)*
+- [ ] **Navigasjon:** `go_router` med `StatefulShellRoute` (bunnnav «Bøker»/«Innstillinger»). — *Kjerne-routing med `go_router` er på plass; bunnnav-skal (`StatefulShellRoute`) er utsatt.*
+- [x] **Tester:** enhetstester for lagringsmotor + Repositorier; widget-tester for editor og bibliotek.
 
-**Milepæl 1:** Bruker kan opprette «Sommehytta», legge til en hytte, skrive
+**Milepæl 1: ✅ nådd** – Bruker kan opprette «Sommehytta», legge til en hytte, skrive
 start-/steng-rutiner, beskrivelse og 2–3 historier med bilder – alt lagret lokalt og
 bevarer seg ved app-oppstart.
+
+#### Fase 1b – Bilder (fullført)
+- `image_picker` + `permission_handler` lagt til i `pubspec.yaml`.
+- `ImagePickerService` (datalag): `takePhoto()` ber om kamera-rettighet først;
+  `pickFromGallery()` er rettighetsfritt. Testbar via underklassing (fake).
+- `BookRepository.importImage(bookSlug, XFile)`: leser byteene, gir filen et unikt
+  navn (tidsstempel) og lagrer den i `<bok>/images/`; returnerer relativ sti.
+- Editoren får knappene «Ta bilde»/«Fra galleri» som setter inn
+  `![navn](images/…)` på cursorposisjonen (kun når `bookSlug` er satt).
+- Plattform: Android `CAMERA`-rettighet + ikke-obligatorisk kamera-feature;
+  iOS `NSCameraUsageDescription` / `NSPhotoLibraryUsageDescription` /
+  `NSPhotoLibraryAddUsageDescription`.
+- Tester: `importImage` round-trip + unikt filnavn (enhet); editor setter inn
+  bilde via fake-piker (widget).
 
 ### Fase 2 – Eksport / Import / Deling
 Mål: boken kan ut og inn.

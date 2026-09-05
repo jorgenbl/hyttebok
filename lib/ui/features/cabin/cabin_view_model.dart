@@ -40,8 +40,9 @@ class CabinViewModel extends ChangeNotifier {
 
   Future<void> _save(Cabin updated) async {
     final book = await _repo.load(bookSlug);
-    final cabins =
-        book.cabins.map((c) => c.slug == cabinSlug ? updated : c).toList();
+    final cabins = book.cabins
+        .map((c) => c.slug == cabinSlug ? updated : c)
+        .toList();
     await _repo.save(book.copyWith(cabins: cabins, updatedAt: DateTime.now()));
     await load();
   }
@@ -54,10 +55,16 @@ class CabinViewModel extends ChangeNotifier {
   // Innhold
   Future<void> updateDescription(String markdown) =>
       _save(_cabin!.copyWith(description: markdown));
-  Future<void> updateStart(String markdown) => _save(_cabin!
-      .copyWith(startRoutines: _cabin!.startRoutines.copyWith(markdown: markdown)));
-  Future<void> updateStop(String markdown) => _save(_cabin!
-      .copyWith(stopRoutines: _cabin!.stopRoutines.copyWith(markdown: markdown)));
+  Future<void> updateStart(String markdown) => _save(
+    _cabin!.copyWith(
+      startRoutines: _cabin!.startRoutines.copyWith(markdown: markdown),
+    ),
+  );
+  Future<void> updateStop(String markdown) => _save(
+    _cabin!.copyWith(
+      stopRoutines: _cabin!.stopRoutines.copyWith(markdown: markdown),
+    ),
+  );
 
   // Seksjoner
   Future<String> addSection(String title) async {
@@ -76,21 +83,39 @@ class CabinViewModel extends ChangeNotifier {
       candidate = '$base-$i';
       i++;
     }
-    final section = Section(slug: candidate, title: title, order: c.sections.length);
+    final section = Section(
+      slug: candidate,
+      title: title,
+      order: c.sections.length,
+    );
     await _save(c.copyWith(sections: [...c.sections, section]));
     return candidate;
   }
 
   Future<void> updateSectionMarkdown(String sectionSlug, String markdown) =>
-      _save(_cabin!.copyWith(sections: _cabin!.sections
-          .map((s) => s.slug == sectionSlug ? s.copyWith(markdown: markdown) : s)
-          .toList()));
+      _save(
+        _cabin!.copyWith(
+          sections: _cabin!.sections
+              .map(
+                (s) =>
+                    s.slug == sectionSlug ? s.copyWith(markdown: markdown) : s,
+              )
+              .toList(),
+        ),
+      );
 
-  Future<void> deleteSection(String sectionSlug) => _save(_cabin!
-      .copyWith(sections: _cabin!.sections.where((s) => s.slug != sectionSlug).toList()));
+  Future<void> deleteSection(String sectionSlug) => _save(
+    _cabin!.copyWith(
+      sections: _cabin!.sections.where((s) => s.slug != sectionSlug).toList(),
+    ),
+  );
 
   // Historier
-  Future<String> addStory(String title, {DateTime? date, String? author}) async {
+  Future<String> addStory(
+    String title, {
+    DateTime? date,
+    String? author,
+  }) async {
     final c = _cabin!;
     final d = date ?? DateTime.now();
     final titleSlug = slugify(title).isEmpty ? 'historie' : slugify(title);
@@ -114,13 +139,16 @@ class CabinViewModel extends ChangeNotifier {
   }
 
   Future<void> updateStoryMarkdown(String storySlug, String markdown) => _save(
-        _cabin!.copyWith(
-          stories: _cabin!.stories
-              .map((s) => s.slug == storySlug ? s.copyWith(markdown: markdown) : s)
-              .toList(),
-        ),
-      );
+    _cabin!.copyWith(
+      stories: _cabin!.stories
+          .map((s) => s.slug == storySlug ? s.copyWith(markdown: markdown) : s)
+          .toList(),
+    ),
+  );
 
-  Future<void> deleteStory(String storySlug) => _save(_cabin!
-      .copyWith(stories: _cabin!.stories.where((s) => s.slug != storySlug).toList()));
+  Future<void> deleteStory(String storySlug) => _save(
+    _cabin!.copyWith(
+      stories: _cabin!.stories.where((s) => s.slug != storySlug).toList(),
+    ),
+  );
 }

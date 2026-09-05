@@ -61,14 +61,14 @@ class Story {
 
   @override
   int get hashCode => Object.hash(
-        slug,
-        title,
-        date,
-        author,
-        markdown,
-        Object.hashAll(images),
-        order,
-      );
+    slug,
+    title,
+    date,
+    author,
+    markdown,
+    Object.hashAll(images),
+    order,
+  );
 
   @override
   String toString() => 'Story(slug: $slug, title: $title, date: $date)';

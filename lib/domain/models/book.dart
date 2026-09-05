@@ -61,14 +61,15 @@ class Book {
 
   @override
   int get hashCode => Object.hash(
-        slug,
-        title,
-        intro,
-        coverImage,
-        Object.hashAll(cabins),
-        updatedAt,
-      );
+    slug,
+    title,
+    intro,
+    coverImage,
+    Object.hashAll(cabins),
+    updatedAt,
+  );
 
   @override
-  String toString() => 'Book(slug: $slug, title: $title, cabins: ${cabins.length})';
+  String toString() =>
+      'Book(slug: $slug, title: $title, cabins: ${cabins.length})';
 }

@@ -28,7 +28,8 @@ Future<String?> showTextInputDialog(
             child: const Text('Avbryt'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
             child: Text(submitLabel),
           ),
         ],

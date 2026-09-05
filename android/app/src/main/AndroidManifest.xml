@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Kamera for å ta opp bilder i hytteboken. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Kamera er ikke obligatorisk slik at appen installeres uten kamera. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
         android:label="hyttebok"
         android:name="${applicationName}"

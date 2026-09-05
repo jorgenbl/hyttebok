@@ -79,16 +79,16 @@ class Cabin {
 
   @override
   int get hashCode => Object.hash(
-        slug,
-        name,
-        location,
-        description,
-        startRoutines,
-        stopRoutines,
-        Object.hashAll(sections),
-        Object.hashAll(stories),
-        order,
-      );
+    slug,
+    name,
+    location,
+    description,
+    startRoutines,
+    stopRoutines,
+    Object.hashAll(sections),
+    Object.hashAll(stories),
+    order,
+  );
 
   @override
   String toString() => 'Cabin(slug: $slug, name: $name)';

@@ -10,13 +10,11 @@ GoRouter buildRouter() {
   return GoRouter(
     initialLocation: '/',
     routes: [
-      GoRoute(
-        path: '/',
-        builder: (context, state) => const LibraryView(),
-      ),
+      GoRoute(path: '/', builder: (context, state) => const LibraryView()),
       GoRoute(
         path: '/book/:slug',
-        builder: (context, state) => BookView(slug: state.pathParameters['slug']!),
+        builder: (context, state) =>
+            BookView(slug: state.pathParameters['slug']!),
       ),
       GoRoute(
         path: '/book/:slug/cabin/:cabinSlug',
@@ -27,7 +25,8 @@ GoRouter buildRouter() {
       ),
       GoRoute(
         path: '/editor',
-        builder: (context, state) => EditorView(input: state.extra as EditorInput),
+        builder: (context, state) =>
+            EditorView(input: state.extra as EditorInput),
       ),
     ],
   );

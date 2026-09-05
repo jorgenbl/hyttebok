@@ -1,12 +1,30 @@
 import 'dart:io';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyttebok/app/app.dart';
 import 'package:hyttebok/data/repositories/book_repository.dart';
 import 'package:hyttebok/data/services/file_storage_service.dart';
+import 'package:hyttebok/data/services/image_picker_service.dart';
 import 'package:hyttebok/domain/models/cabin.dart';
 import 'package:hyttebok/domain/models/section.dart';
+import 'package:hyttebok/ui/features/editor/editor.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+
+/// Fake som hopper over kamera/galleri-plugin og returnerer et forhåndsvalgt
+/// bilde. Gjør editor-testen uavhengig av plattformkanaler.
+class _FakeImagePickerService extends ImagePickerService {
+  _FakeImagePickerService(this.nextFile);
+
+  final XFile? nextFile;
+
+  @override
+  Future<XFile?> pickFromGallery() async => nextFile;
+
+  @override
+  Future<XFile?> takePhoto() async => nextFile;
+}
 
 void main() {
   late Directory tempDir;
@@ -102,5 +120,60 @@ void main() {
     await tester.pump();
 
     expect(find.text('Fjellhytta'), findsOneWidget);
+  });
+
+  testWidgets('kan legge til bilde fra galleri i editoren', (tester) async {
+    final storage = makeStorage();
+    final srcPath = '${tempDir.path}/foto.jpg';
+    late String slug;
+    // Ekte fil-I/O (opprette bok + kildebilde) i en ekte async-zone.
+    await tester.runAsync(() async {
+      slug = await storage.createBook('Sommehytta');
+      await File(srcPath).writeAsBytes([10, 20, 30, 40]);
+    });
+    final fakePicker = _FakeImagePickerService(XFile(srcPath));
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<BookRepository>.value(value: BookRepository(storage)),
+          Provider<ImagePickerService>.value(value: fakePicker),
+        ],
+        child: MaterialApp(
+          home: EditorView(
+            input: EditorInput(
+              title: 'Beskrivelse',
+              initialValue: '',
+              bookSlug: slug,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Fra galleri'));
+    // Importen gjør ekte fil-I/O i en fire-and-forget-future. La den
+    // fullføre over flere omganger (bounded – henger aldri).
+    String? text;
+    for (var i = 0; i < 12; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 120)),
+      );
+      await tester.pump();
+      text = tester.widget<TextField>(find.byType(TextField)).controller?.text;
+      if (text?.contains('![') ?? false) break;
+    }
+
+    expect(text, contains('!['));
+    expect(text, contains('](images/'));
+
+    // Bildet skal faktisk være lagret i boken.
+    final imagesDir = Directory('${storage.bookRootPath(slug)}/images');
+    final saved = await tester.runAsync(() async {
+      if (!imagesDir.existsSync()) return 0;
+      return imagesDir.listSync().length;
+    });
+    expect(saved, 1);
   });
 }
