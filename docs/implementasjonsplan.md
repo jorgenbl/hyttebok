@@ -137,15 +137,35 @@ bevarer seg ved app-oppstart.
 ### Fase 2 – Eksport / Import / Deling
 Mål: boken kan ut og inn.
 
-- [ ] **Eksport → én fil:** samlet Markdown med bilder inlinet som base64 (valgfritt: referanse i stedet).
-- [ ] **Eksport → mappe:** `.zip` med Markdown-filer + `images/` (tro mot lagringsformatet).
-- [ ] **Deling:** `share_plus` for å dele eksportert fil (printer/e-post/deling).
-- [ ] **Import:** velg `.md`/`.zip` (`file_picker`), pars frontmatter + heading-konvensjonen, rekonstruér modellen.
-- [ ] **Round-trip-test:** eksport → import gir en likeverdig bok (integritet).
-- [ ] **Konflikt-/validering:** håndter korrupte/ukjente filer med vennlige feilmeldinger.
+- [x] **Eksport → én fil:** samlet Markdown med bilder inlinet som base64 (valgfritt: referanse i stedet).
+- [x] **Eksport → mappe:** `.zip` med Markdown-filer + `images/` (tro mot lagringsformatet).
+- [x] **Deling:** `share_plus` for å dele eksportert fil (printer/e-post/deling).
+- [x] **Import:** velg `.md`/`.zip` (`file_picker`), pars frontmatter + heading-konvensjonen, rekonstruér modellen.
+- [x] **Round-trip-test:** eksport → import gir en likeverdig bok (integritet).
+- [x] **Konflikt-/validering:** håndter korrupte/ukjente filer med vennlige feilmeldinger.
 
-**Milepæl 2:** Bruker kan eksportere «Sommehytta» til én `.md` (åpenes pent i f.eks.
-Obsidian/Typora, printes), dele den, og importere den tilbake uten data tap.
+**Milepæl 2: ✅ nådd** – Bruker kan eksportere «Sommehytta» til én `.md` (åpenes pent i
+f.eks. Obsidian/Typora, printes), dele den, og importere den tilbake uten data tap.
+
+#### Fase 2 – Eksport/Import/Deling (fullført)
+- `share_plus`, `file_picker` og `archive` lagt til i `pubspec.yaml`.
+- `book_markdown.dart` (datalag): `bookToSingleFile` / `singleFileToBook` – én samlet
+  Markdown med struktur koden i HTML-kommentar-markører
+  (`<!-- cabin:… -->`, `<!-- start:images=… -->`, `<!-- section:… -->`,
+  `<!-- story:… -->`) + heading-konvensjonen. Bilder inlines som base64-data-uri ved
+  eksport og trekkes ut til filer igjen ved import (byte-preservasjon).
+- `BookRepository`: `exportSingleFile(slug)` (én `.md`), `exportZip(slug)` (`.zip` med
+  Markdown + `images/` + `cabins/`), `importFromPath(path)` (`.md`/`.zip` → ny bok med
+  unikt slug). Eksport legges i en eksportmappe (injectbar for tester).
+- `ShareService` (`share_plus`-innpakning: `shareFile(path, {subject})`) og
+  `FilePickerService` (`file_picker`-innpakning: `pickBookFile()` → `PickedBookFile`),
+  begge injiserbare via `HyttebokApp` for tester.
+- `InvalidBookFile`-feiltype for vennlige meldinger ved tom/korrupt/ukjent inndata.
+- UI: delingsmeny på bok-siden («Del som Markdown» / «Del som mappe») og «Importer
+  bok»-knapp i biblioteket (plukk → import → naviger til den nye boken).
+- Tester: serializer round-trip (ren tekst eksakt like, base64-bilder trekkes ut med
+  byte-preservasjon), repo eksport/import for `.md` og `.zip`, korrupt/ukjent inndata →
+  `InvalidBookFile`; widget-tester for delingsmenyen og import-flyten.
 
 ### Fase 3 – Struktur, maler og oppbygging (uten AI)
 Mål: hjelpe brukeren til å lage en komplett, velstrukturert bok.

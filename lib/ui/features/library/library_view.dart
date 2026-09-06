@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/errors.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/widgets/dialogs.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../data/repositories/book_repository.dart';
+import '../../../data/services/file_picker_service.dart';
 import 'library_view_model.dart';
 
 /// Biblioteket: listen med hyttebøker.
@@ -52,13 +54,40 @@ class _LibraryBody extends StatelessWidget {
     if (ok) await vm.deleteBook(slug);
   }
 
+  /// Plukker en fil (`.md` eller `.zip`) og importerer den som en ny bok.
+  Future<void> _importBook(BuildContext context, LibraryViewModel vm) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final picked = await context.read<FilePickerService>().pickBookFile();
+    final path = picked?.path;
+    if (path == null || !context.mounted) return;
+    try {
+      final slug = await vm.importBook(path);
+      if (context.mounted) context.go('/book/$slug');
+    } on InvalidBookFile catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Kunne ikke importere boken.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<LibraryViewModel>();
     final books = vm.books;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Hyttebøker')),
+      appBar: AppBar(
+        title: const Text('Hyttebøker'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.file_upload_outlined),
+            tooltip: 'Importer bok',
+            onPressed: () => _importBook(context, vm),
+          ),
+        ],
+      ),
       body: books.isEmpty
           ? const EmptyState(
               icon: Icons.menu_book,

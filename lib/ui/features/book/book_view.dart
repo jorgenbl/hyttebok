@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/errors.dart';
 import '../../../core/widgets/dialogs.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../data/repositories/book_repository.dart';
+import '../../../data/services/share_service.dart';
 import '../../../domain/models/cabin.dart';
 import '../../../ui/features/editor/editor.dart';
 import 'book_view_model.dart';
@@ -70,6 +72,34 @@ class _BookBody extends StatelessWidget {
     if (ok) await vm.deleteCabin(cabin.slug);
   }
 
+  /// Eksporterer boka (én `.md`-fil eller `.zip`) og deler den via
+  /// delingsmenyen. [zip] velger format.
+  Future<void> _shareAs(
+    BuildContext context,
+    BookViewModel vm, {
+    required bool zip,
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final repo = context.read<BookRepository>();
+    final share = context.read<ShareService>();
+    final title = vm.book?.title ?? 'Hyttebok';
+    try {
+      final path = zip
+          ? await repo.exportZip(vm.slug)
+          : await repo.exportSingleFile(vm.slug);
+      final shared = await share.shareFile(path, subject: title);
+      if (shared) {
+        messenger.showSnackBar(const SnackBar(content: Text('Boken er delt.')));
+      }
+    } on InvalidBookFile catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Kunne ikke dele boken.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<BookViewModel>();
@@ -92,7 +122,26 @@ class _BookBody extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(book.title)),
+      appBar: AppBar(
+        title: Text(book.title),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.share),
+            tooltip: 'Del / eksporter',
+            onSelected: (value) {
+              if (value == 'md') {
+                _shareAs(context, vm, zip: false);
+              } else if (value == 'zip') {
+                _shareAs(context, vm, zip: true);
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'md', child: Text('Del som Markdown (.md)')),
+              PopupMenuItem(value: 'zip', child: Text('Del som mappe (.zip)')),
+            ],
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 96),
         children: [

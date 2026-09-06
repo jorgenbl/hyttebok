@@ -30,6 +30,14 @@ class LibraryViewModel extends ChangeNotifier {
     return slug;
   }
 
+  /// Importerer en bok fra [path] (fil fra `file_picker`) og returnerer slug
+  /// til den nye boken. Kan kaste [InvalidBookFile] fra datalaget.
+  Future<String> importBook(String path) async {
+    final slug = await _repo.importFromPath(path);
+    await load();
+    return slug;
+  }
+
   Future<void> deleteBook(String slug) async {
     await _repo.delete(slug);
     await load();

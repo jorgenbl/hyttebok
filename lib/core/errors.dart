@@ -31,3 +31,11 @@ class ImageNotFound implements Exception {
   @override
   String toString() => 'Bilde fantes ikke: $path';
 }
+
+/// En fil som skulle importeres var ugyldig (feil type, korrupt, tom).
+class InvalidBookFile implements Exception {
+  InvalidBookFile(this.message);
+  final String message;
+  @override
+  String toString() => 'Kunne ikke importere boken: $message';
+}
