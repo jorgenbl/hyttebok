@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/theme_preference.dart';
 import '../../../core/errors.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/widgets/dialogs.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../data/repositories/book_repository.dart';
 import '../../../data/services/file_picker_service.dart';
 import 'library_view_model.dart';
@@ -72,6 +74,38 @@ class _LibraryBody extends StatelessWidget {
     }
   }
 
+  Widget _themeMenu(BuildContext context) => PopupMenuButton<ThemeMode>(
+    icon: const Icon(Icons.brightness_6_outlined),
+    tooltip: 'Tema',
+    onSelected: (mode) => context.read<ThemePreference>().setMode(mode),
+    itemBuilder: (context) {
+      final current = context.read<ThemePreference>().mode;
+      return [
+        _themeItem(ThemeMode.system, 'Følg system', current),
+        _themeItem(ThemeMode.light, 'Lyst tema', current),
+        _themeItem(ThemeMode.dark, 'Mørkt tema', current),
+      ];
+    },
+  );
+
+  PopupMenuEntry<ThemeMode> _themeItem(
+    ThemeMode value,
+    String label,
+    ThemeMode current,
+  ) {
+    final selected = value == current;
+    return PopupMenuItem<ThemeMode>(
+      value: value,
+      child: Row(
+        children: [
+          Icon(selected ? Icons.check : Icons.radio_button_unchecked, size: 18),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<LibraryViewModel>();
@@ -81,6 +115,7 @@ class _LibraryBody extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Hyttebøker'),
         actions: [
+          _themeMenu(context),
           IconButton(
             icon: const Icon(Icons.file_upload_outlined),
             tooltip: 'Importer bok',
@@ -88,10 +123,14 @@ class _LibraryBody extends StatelessWidget {
           ),
         ],
       ),
-      body: books.isEmpty
+      body: vm.loading && books.isEmpty
+          ? const SkeletonList()
+          : books.isEmpty
           ? const EmptyState(
               icon: Icons.menu_book,
-              message: 'Ingen hyttebøker ennå.\nTrykk på + for å opprette din første bok.',
+              message:
+                  'Ingen hyttebøker ennå.\nTrykk på + for å opprette din '
+                  'første bok.',
             )
           : ListView.builder(
               padding: const EdgeInsets.only(bottom: 96),

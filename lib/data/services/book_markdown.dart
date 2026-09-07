@@ -82,7 +82,8 @@ Future<String> bookToSingleFile(
         '## ${section.title}',
         marker:
             '<!-- section:slug=${_enc(section.slug)}'
-            ' images=${_encImages(section.images)} -->',
+            ' images=${_encImages(section.images)}'
+            '${section.hidden ? ' hidden=true' : ''} -->',
         content: section.markdown,
       );
     }
@@ -284,6 +285,7 @@ Cabin _parseCabin(String block, Map<String, String> cabinFields) {
             images: _resolveImages(body, fields?['images']),
             type: SectionType.egen,
             order: sections.length,
+            hidden: fields?['hidden'] == 'true',
           ),
         );
     }

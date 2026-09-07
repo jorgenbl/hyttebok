@@ -10,34 +10,80 @@ Future<String?> showTextInputDialog(
   String? hint,
   String submitLabel = 'Lagre',
 }) async {
-  final controller = TextEditingController(text: initialValue);
-  try {
-    final result = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: InputDecoration(labelText: label, hintText: hint),
+  final result = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) => _TextInputDialog(
+      title: title,
+      label: label,
+      initialValue: initialValue,
+      hint: hint,
+      submitLabel: submitLabel,
+    ),
+  );
+  return (result == null || result.isEmpty) ? null : result;
+}
+
+/// Enkel tekst-innspurt-dialog som selv eier sin [TextEditingController]
+/// (disposert i [State.dispose]), slik at kontrollen ikke rammes av «used
+/// after dispose» under dialogens ut-animation.
+class _TextInputDialog extends StatefulWidget {
+  const _TextInputDialog({
+    required this.title,
+    this.label,
+    this.initialValue,
+    this.hint,
+    required this.submitLabel,
+  });
+
+  final String title;
+  final String? label;
+  final String? initialValue;
+  final String? hint;
+  final String submitLabel;
+
+  @override
+  State<_TextInputDialog> createState() => _TextInputDialogState();
+}
+
+class _TextInputDialogState extends State<_TextInputDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: InputDecoration(
+          labelText: widget.label,
+          hintText: widget.hint,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Avbryt'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
-            child: Text(submitLabel),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Avbryt'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: Text(widget.submitLabel),
+        ),
+      ],
     );
-    return (result == null || result.isEmpty) ? null : result;
-  } finally {
-    controller.dispose();
   }
 }
 

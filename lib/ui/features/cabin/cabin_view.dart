@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/widgets/dialogs.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../data/repositories/book_repository.dart';
 import '../../../domain/models/section.dart';
 import '../../../domain/models/story.dart';
@@ -139,6 +140,71 @@ class _CabinBody extends StatelessWidget {
     );
   }
 
+  /// En seksjonstile med kontekstmeny (flytt opp/ned, skjul/vis, slett).
+  ///
+  /// [onMove] må settes for å tillate omstilling; [index] og [count] gjelder
+  /// innenom den synlige underlisten.
+  Widget _sectionTile(
+    Section section, {
+    required int index,
+    required int count,
+    required VoidCallback onTap,
+    required VoidCallback onDelete,
+    required VoidCallback onToggleHide,
+    void Function(int delta)? onMove,
+  }) {
+    return Card(
+      margin: _margin,
+      child: ListTile(
+        onTap: onTap,
+        leading: Icon(
+          section.hidden ? Icons.visibility_outlined : Icons.subject,
+        ),
+        title: Text(section.title),
+        trailing: PopupMenuButton<String>(
+          tooltip: 'Alternativer',
+          onSelected: (value) {
+            switch (value) {
+              case 'opp':
+                onMove?.call(-1);
+              case 'ned':
+                onMove?.call(1);
+              case 'skjul':
+                onToggleHide();
+              case 'slett':
+                onDelete();
+            }
+          },
+          itemBuilder: (_) => [
+            if (onMove != null && index > 0)
+              const PopupMenuItem(value: 'opp', child: Text('Flytt opp')),
+            if (onMove != null && index < count - 1)
+              const PopupMenuItem(value: 'ned', child: Text('Flytt ned')),
+            PopupMenuItem(
+              value: 'skjul',
+              child: Text(section.hidden ? 'Vis igjen' : 'Skjul'),
+            ),
+            const PopupMenuItem(value: 'slett', child: Text('Slett')),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editSection(
+    BuildContext context,
+    CabinViewModel vm,
+    Section section,
+  ) async {
+    final text = await _edit(
+      context,
+      title: section.title,
+      initial: section.markdown,
+      bookSlug: vm.bookSlug,
+    );
+    if (text != null) await vm.updateSectionMarkdown(section.slug, text);
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<CabinViewModel>();
@@ -147,7 +213,7 @@ class _CabinBody extends StatelessWidget {
     if (vm.loading && cabin == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Hytte')),
-        body: Center(child: CircularProgressIndicator()),
+        body: const SkeletonList(),
       );
     }
     if (cabin == null) {
@@ -159,6 +225,9 @@ class _CabinBody extends StatelessWidget {
         ),
       );
     }
+
+    final visibleSections = cabin.sections.where((s) => !s.hidden).toList();
+    final hiddenSections = cabin.sections.where((s) => s.hidden).toList();
 
     return Scaffold(
       appBar: AppBar(title: Text(cabin.name)),
@@ -240,29 +309,39 @@ class _CabinBody extends StatelessWidget {
           ),
 
           _header('Seksjoner'),
-          if (cabin.sections.isEmpty)
+          if (visibleSections.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Text('Ingen tilleggsseksjoner.'),
+              child: Text(
+                'Ingen synlige seksjoner. Legg til en med +, eller vis igjen '
+                'en skjult seksjon nedenfor.',
+              ),
             )
           else
-            for (final section in cabin.sections)
-              _tile(
-                icon: Icons.subject,
-                title: section.title,
-                onTap: () async {
-                  final text = await _edit(
-                    context,
-                    title: section.title,
-                    initial: section.markdown,
-                    bookSlug: vm.bookSlug,
-                  );
-                  if (text != null) {
-                    await vm.updateSectionMarkdown(section.slug, text);
-                  }
-                },
-                onDelete: () => _deleteSection(context, vm, section),
+            for (var i = 0; i < visibleSections.length; i++)
+              _sectionTile(
+                visibleSections[i],
+                index: i,
+                count: visibleSections.length,
+                onTap: () => _editSection(context, vm, visibleSections[i]),
+                onDelete: () => _deleteSection(context, vm, visibleSections[i]),
+                onToggleHide: () =>
+                    vm.toggleHideSection(visibleSections[i].slug),
+                onMove: (delta) =>
+                    vm.moveSection(visibleSections[i].slug, delta),
               ),
+          if (hiddenSections.isNotEmpty) ...[
+            _header('Skjulte seksjoner'),
+            for (final section in hiddenSections)
+              _sectionTile(
+                section,
+                index: 0,
+                count: 0,
+                onTap: () => _editSection(context, vm, section),
+                onDelete: () => _deleteSection(context, vm, section),
+                onToggleHide: () => vm.toggleHideSection(section.slug),
+              ),
+          ],
 
           _header('Historier'),
           if (cabin.stories.isEmpty)

@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../ui/features/book/book_search_view.dart';
 import '../ui/features/book/book_view.dart';
 import '../ui/features/cabin/cabin_view.dart';
 import '../ui/features/editor/editor.dart';
@@ -15,6 +16,11 @@ GoRouter buildRouter() {
         path: '/book/:slug',
         builder: (context, state) =>
             BookView(slug: state.pathParameters['slug']!),
+      ),
+      GoRoute(
+        path: '/book/:slug/search',
+        builder: (context, state) =>
+            BookSearchView(slug: state.pathParameters['slug']!),
       ),
       GoRoute(
         path: '/book/:slug/cabin/:cabinSlug',

@@ -6,6 +6,7 @@ import '../../../domain/models/book.dart';
 import '../../../domain/models/cabin.dart';
 import '../../../domain/models/section.dart';
 import '../../../domain/models/section_type.dart';
+import '../../../domain/templates/cabin_template.dart';
 
 /// Tilstand og kommandoer for én bok (forside + listen med hytter).
 class BookViewModel extends ChangeNotifier {
@@ -32,20 +33,12 @@ class BookViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Oppretter en ny hytte i boka og returnerer slug.
+  /// Oppretter en ny (tom) hytte i boka og returnerer slug.
   Future<String> createCabin(String name) async {
     final b = _book!;
-    var base = slugify(name);
-    if (base.isEmpty) base = 'hytte';
-    var candidate = base;
-    var i = 2;
-    final existing = b.cabins.map((c) => c.slug).toSet();
-    while (existing.contains(candidate)) {
-      candidate = '$base-$i';
-      i++;
-    }
+    final slug = _uniqueCabinSlug(name, b);
     final cabin = Cabin(
-      slug: candidate,
+      slug: slug,
       name: name,
       order: b.cabins.length,
       startRoutines: Section(
@@ -62,6 +55,42 @@ class BookViewModel extends ChangeNotifier {
       ),
     );
     await _save(b.copyWith(cabins: [...b.cabins, cabin]));
+    return slug;
+  }
+
+  /// Oppretter en ny hytte fra en [template] (Fase 3): beskrivelse, rutiner og
+  /// alle seksjoner fylles med malens ledetekst. Returnerer slug.
+  Future<String> createCabinFromTemplate(
+    CabinTemplate template, {
+    required String name,
+    String? location,
+  }) async {
+    final b = _book!;
+    final slug = _uniqueCabinSlug(name, b);
+    final cabin = cabinFromTemplate(
+      template,
+      name: name,
+      slug: slug,
+      location: (location == null || location.trim().isEmpty)
+          ? null
+          : location.trim(),
+      order: b.cabins.length,
+    );
+    await _save(b.copyWith(cabins: [...b.cabins, cabin]));
+    return slug;
+  }
+
+  /// Gir et unikt slug for en ny hytte basert på [name].
+  String _uniqueCabinSlug(String name, Book b) {
+    var base = slugify(name);
+    if (base.isEmpty) base = 'hytte';
+    var candidate = base;
+    var i = 2;
+    final existing = b.cabins.map((c) => c.slug).toSet();
+    while (existing.contains(candidate)) {
+      candidate = '$base-$i';
+      i++;
+    }
     return candidate;
   }
 

@@ -170,17 +170,47 @@ f.eks. Obsidian/Typora, printes), dele den, og importere den tilbake uten data t
 ### Fase 3 – Struktur, maler og oppbygging (uten AI)
 Mål: hjelpe brukeren til å lage en komplett, velstrukturert bok.
 
-- [ ] **Standardstrukturbibliotek:** innebygd mal for hva en hyttebok bør inneholde
+- [x] **Standardstrukturbibliotek:** innebygd mal for hva en hyttebok bør inneholde
       (f.eks. «Kontakter», «Adresser & koordinater», «Åpne-rutiner», «Steng-rutiner»,
       «Kjeller / ved», «Vann & avløp», «Elverk / strømforsyning», «Vedlikeholdsplan»,
       «Inventar», «Gjestebok / historier», «Tips for gjester»).
-- [ ] **Mal-basert opprettelse:** «Ny hytte fra mal» som fyller ut seksjoner med ledetekst.
-- [ ] **Reorganisering:** flytt/legge til/skjul seksjoner, endre rekkefølge (drag & drop).
-- [ ] **Søk:** fulltekstssøk i hele boken.
-- [ ] **Polering:** tomme tilstander, skelettladning, tilgangsløs design (dark mode).
+- [x] **Mal-basert opprettelse:** «Ny hytte fra mal» som fyller ut seksjoner med ledetekst.
+- [x] **Reorganisering:** flytt/legge til/skjul seksjoner, endre rekkefølge (opp/ned-kontroller; drag & drop er et oppfølgingspunkt).
+- [x] **Søk:** fulltekstssøk i hele boken.
+- [x] **Polering:** tomme tilstander, skelettladning, tilgangsløs design (dark mode + tema-veksler).
 
-**Milepæl 3:** En ny bruker kan med ett trykk få en komplett, ledetekst-fylt mal og
-strukturere boken til å bli komplett – helt uten AI.
+**Milepæl 3: ✅ nådd** – En ny bruker kan med ett trykk få en komplett, ledetekst-fylt
+mal og strukturere boken til å bli komplett – helt uten AI.
+
+#### Fase 3 – Struktur/maler/søk/polering (fullført)
+- **Standardstrukturbibliotek** (`lib/domain/templates/cabin_template.dart`): rene
+  datamodeller `CabinTemplate`/`SectionSpec` + konstant `standardCabinTemplate`
+  (Kontakter & nøkkeler, Adresse & koordinater, Vann/avløp/toalett,
+  Strøm/brytere/generator, Ved & peis, Kjeller/boder/utstyr, Vedlikeholdsplan,
+  Inventar, Tips for gjester) + ledetekst til beskrivelse og åpne-/steng-rutiner.
+  `cabinFromTemplate(...)` materialiserer malen til en `Cabin`. Injiserbart via
+  `HyttebokApp(cabinTemplates: …)`.
+- **Mal-basert opprettelse:** FAB i boken åpner bottom sheet «Ny hytte» /
+  «Ny hytte fra mal» (navn + valgfritt sted → full struktur med ledetekst).
+  `BookViewModel.createCabinFromTemplate`.
+- **Reorganisering:** `Section.hidden` (persistert i lagrings-frontmatter og i
+  serializer-markøren `hidden=true`, tap-fri round-trip). `CabinViewModel.moveSection`
+  (opp/ned blant synlige) og `toggleHideSection`. UI: kontekstmeny per seksjon
+  (flytt opp/ned, skjul/vis igjen, slett) + separat «Skjulte seksjoner»-gruppe.
+  Drag & drop (i stedet for opp/ned) er et oppfølgingspunkt.
+- **Søk** (`lib/domain/search/book_search.dart`): ren funksjon `searchBook(book, query)`
+  (case-uavhengig, hele boken inkl. skjulte seksjoner) → `SearchResult`. Søkeskjerm
+  via rute `/book/:slug/search` + søkeknappp i boken; treff navigerer til hytta.
+- **Polering:** `SkeletonList` (pulsrende skelett) i ladingstilstand; tema-veksler
+  (system/lys/mørk) via `ThemePreference` + meny i biblioteket (mørk modus følger
+  system og kan velges manuelt); bedre tomme tilstander. Temavalget holdes i minne
+  for sesjonen; persistering mellom oppstart krever et innstillingslager og er et
+  oppfølgingspunkt.
+- **Feilrettelse underveis:** `showTextInputDialog` byttet til egen `StatefulWidget`
+  som eier `TextEditingController` (disposert i `State.dispose`) – fikser latent
+  «used after disposed» ved påfølgende dialoger.
+- Tester: enhetstester for mal, søk og `hidden`-round-trip (lagring + serializer);
+  widget-tester for «Ny hytte fra mal», flytt/skjul-seksjoner, søk og tema-veksler.
 
 ### Fase 4 – AI-integrasjon
 Mål: AI hjelper med oppbygging, struktur og innhold.

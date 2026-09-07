@@ -291,6 +291,7 @@ class FileStorageService {
       'title': section.title,
       'order': section.order,
       if (section.images.isNotEmpty) 'images': section.images,
+      if (section.hidden) 'hidden': true,
     };
     await File(p.join(cabinDir.path, '$filename.md'))
         .writeAsString(withFrontmatter(meta, section.markdown));
@@ -313,6 +314,7 @@ class FileStorageService {
       images: _parseImages(fm.meta['images']),
       type: type,
       order: (fm.meta['order'] as int?) ?? 0,
+      hidden: (fm.meta['hidden'] as bool?) ?? false,
     );
   }
 

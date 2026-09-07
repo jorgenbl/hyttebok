@@ -106,6 +106,38 @@ void main() {
       );
       expect(readBack, equals(bytes));
     });
+
+    test('hidden-flag på seksjon beholdes i lagringen', () async {
+      final book = sampleBook().copyWith(
+        cabins: [
+          sampleBook().cabins.first.copyWith(
+            sections: [
+              Section(
+                slug: 'synlig',
+                title: 'Synlig',
+                order: 0,
+                markdown: 'Synlig.',
+              ),
+              Section(
+                slug: 'skjult',
+                title: 'Kjeller',
+                order: 1,
+                markdown: 'Skjult.',
+                hidden: true,
+              ),
+            ],
+          ),
+        ],
+      );
+      await storage.writeBook(book);
+
+      final read = await storage.readBook('sommehytta');
+      final sections = read.cabins.first.sections;
+      expect(sections[0].hidden, isFalse);
+      expect(sections[1].hidden, isTrue);
+      // Full likeverdig boks (== inkluderer hidden).
+      expect(read, equals(book));
+    });
   });
 
   group('createBook / listBooks', () {

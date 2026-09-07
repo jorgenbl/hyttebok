@@ -110,6 +110,35 @@ class CabinViewModel extends ChangeNotifier {
     ),
   );
 
+  /// Flytter seksjonen [slug] [delta] steg (negativt = opp) blant de synlige
+  /// seksjonene, og tildeler orden på nytt. Skjulte seksjoner holder plassen sin.
+  Future<void> moveSection(String sectionSlug, int delta) async {
+    final c = _cabin!;
+    final visible = c.sections.where((s) => !s.hidden).toList();
+    final hidden = c.sections.where((s) => s.hidden).toList();
+    final idx = visible.indexWhere((s) => s.slug == sectionSlug);
+    if (idx < 0) return;
+    final target = idx + delta;
+    if (target < 0 || target >= visible.length) return;
+    final reordered = [...visible];
+    final moved = reordered.removeAt(idx);
+    reordered.insert(target, moved);
+    final merged = [...reordered, ...hidden];
+    final renumbered = [
+      for (var i = 0; i < merged.length; i++) merged[i].copyWith(order: i),
+    ];
+    await _save(c.copyWith(sections: renumbered));
+  }
+
+  /// Veksler synlighet (skjul/vis) for seksjonen [sectionSlug].
+  Future<void> toggleHideSection(String sectionSlug) => _save(
+    _cabin!.copyWith(
+      sections: _cabin!.sections
+          .map((s) => s.slug == sectionSlug ? s.copyWith(hidden: !s.hidden) : s)
+          .toList(),
+    ),
+  );
+
   // Historier
   Future<String> addStory(
     String title, {

@@ -13,6 +13,7 @@ class Section {
     this.images = const [],
     this.type = SectionType.egen,
     this.order = 0,
+    this.hidden = false,
   });
 
   final String slug;
@@ -29,6 +30,12 @@ class Section {
   /// Manuel rekkefølge (større = lenger nede).
   final int order;
 
+  /// Om seksjonen skal skjules fra den vanlige seksjonslisten i appen.
+  ///
+  /// Skjulte seksjoner beholdes i lagringen og i eksporten (tap-fri), men vises
+  /// under et eget «Skjulte»-område i UI slik at brukeren kan gjenopprette dem.
+  final bool hidden;
+
   Section copyWith({
     String? slug,
     String? title,
@@ -36,6 +43,7 @@ class Section {
     List<String>? images,
     SectionType? type,
     int? order,
+    bool? hidden,
   }) {
     return Section(
       slug: slug ?? this.slug,
@@ -44,6 +52,7 @@ class Section {
       images: images ?? this.images,
       type: type ?? this.type,
       order: order ?? this.order,
+      hidden: hidden ?? this.hidden,
     );
   }
 
@@ -56,12 +65,20 @@ class Section {
         other.markdown == markdown &&
         listEquals(other.images, images) &&
         other.type == type &&
-        other.order == order;
+        other.order == order &&
+        other.hidden == hidden;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(slug, title, markdown, Object.hashAll(images), type, order);
+  int get hashCode => Object.hash(
+    slug,
+    title,
+    markdown,
+    Object.hashAll(images),
+    type,
+    order,
+    hidden,
+  );
 
   @override
   String toString() => 'Section(slug: $slug, title: $title, type: $type)';

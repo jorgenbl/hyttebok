@@ -5,9 +5,11 @@ import 'package:provider/provider.dart';
 import '../../../core/errors.dart';
 import '../../../core/widgets/dialogs.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../data/repositories/book_repository.dart';
 import '../../../data/services/share_service.dart';
 import '../../../domain/models/cabin.dart';
+import '../../../domain/templates/cabin_template.dart';
 import '../../../ui/features/editor/editor.dart';
 import 'book_view_model.dart';
 
@@ -56,6 +58,37 @@ class _BookBody extends StatelessWidget {
     );
     if (name == null) return;
     final cabinSlug = await vm.createCabin(name);
+    if (context.mounted) context.go('/book/${vm.slug}/cabin/$cabinSlug');
+  }
+
+  /// Oppretter en hytte fra mal (Fase 3): full struktur med ledetekst.
+  Future<void> _newCabinFromTemplate(
+    BuildContext context,
+    BookViewModel vm,
+  ) async {
+    final templates = context.read<List<CabinTemplate>>();
+    final template = templates.isNotEmpty
+        ? templates.first
+        : standardCabinTemplate;
+    final name = await showTextInputDialog(
+      context,
+      title: 'Ny hytte fra mal',
+      label: 'Navn på hytta',
+      hint: 'f.eks. Fjellhytta, Røros',
+    );
+    if (name == null || !context.mounted) return;
+    final location = await showTextInputDialog(
+      context,
+      title: 'Ny hytte fra mal',
+      label: 'Sted (valgfritt)',
+      hint: 'f.eks. Røros, 638 m.o.h.',
+    );
+    if (!context.mounted) return;
+    final cabinSlug = await vm.createCabinFromTemplate(
+      template,
+      name: name,
+      location: location,
+    );
     if (context.mounted) context.go('/book/${vm.slug}/cabin/$cabinSlug');
   }
 
@@ -108,7 +141,7 @@ class _BookBody extends StatelessWidget {
     if (vm.loading && book == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Hyttebok')),
-        body: Center(child: CircularProgressIndicator()),
+        body: const SkeletonList(),
       );
     }
     if (book == null) {
@@ -125,6 +158,11 @@ class _BookBody extends StatelessWidget {
       appBar: AppBar(
         title: Text(book.title),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: 'Søk i boka',
+            onPressed: () => context.push('/book/${vm.slug}/search'),
+          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.share),
             tooltip: 'Del / eksporter',
@@ -189,9 +227,36 @@ class _BookBody extends StatelessWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _newCabin(context, vm),
         tooltip: 'Ny hytte',
         child: const Icon(Icons.add),
+        onPressed: () => showModalBottomSheet<void>(
+          context: context,
+          builder: (sheetContext) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.add_home_outlined),
+                  title: const Text('Ny hytte'),
+                  subtitle: const Text('Tom hytte'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _newCabin(context, vm);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.auto_fix_high),
+                  title: const Text('Ny hytte fra mal'),
+                  subtitle: const Text('Komplett struktur med ledetekst'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _newCabinFromTemplate(context, vm);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

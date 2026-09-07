@@ -102,6 +102,65 @@ void main() {
       expect(imported, equals(original));
     });
 
+    test('skjult (hidden) seksjon round-tripper', () async {
+      final original = Book(
+        slug: 'skjult',
+        title: 'Skjult',
+        updatedAt: DateTime(2026, 1, 1),
+        cabins: [
+          Cabin(
+            slug: 'hytta',
+            name: 'Hytta',
+            startRoutines: const Section(
+              slug: 'start-rutiner',
+              title: 'Åpne-rutiner',
+              type: SectionType.startRoutines,
+              order: 1,
+            ),
+            stopRoutines: const Section(
+              slug: 'steng-rutiner',
+              title: 'Steng-rutiner',
+              type: SectionType.stopRoutines,
+              order: 2,
+            ),
+            sections: const [
+              Section(
+                slug: 'synlig',
+                title: 'Synlig',
+                markdown: 'Synlig seksjon.',
+                order: 0,
+              ),
+              Section(
+                slug: 'kjeller',
+                title: 'Kjeller',
+                markdown: 'Dette er skjult.',
+                order: 1,
+                hidden: true,
+              ),
+            ],
+            order: 0,
+          ),
+        ],
+      );
+
+      final md = await bookToSingleFile(
+        original,
+        imageBytes: (_) async => null,
+      );
+      // Markøren bærer hidden=true for den skjulte seksjonen.
+      expect(md, contains('hidden=true'));
+
+      final imported = await _roundTrip(original);
+      final sections = imported.cabins.first.sections;
+      expect(sections.length, 2);
+      expect(sections[0].slug, 'synlig');
+      expect(sections[0].hidden, isFalse);
+      expect(sections[1].slug, 'kjeller');
+      expect(sections[1].hidden, isTrue);
+      // Innholdet er likevel bevart (tap-fri).
+      expect(sections[1].markdown, 'Dette er skjult.');
+    });
+
     test('norsk tekst og spesialtegn round-tripper i tittel og felt', () async {
       final original = Book(
         slug: 'hjemmet',
