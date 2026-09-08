@@ -47,6 +47,8 @@ dependencies:
   share_plus: ^13.3.0
   file_picker: ^12.2.0
   archive: ^4.2.0
+  http: ^1.6.0
+  flutter_secure_storage: ^11.0.0
 
 dev_dependencies:
   flutter_test:

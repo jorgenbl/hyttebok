@@ -215,21 +215,71 @@ mal og strukturere boken til å bli komplett – helt uten AI.
 ### Fase 4 – AI-integrasjon
 Mål: AI hjelper med oppbygging, struktur og innhold.
 
-- [ ] **`AiProvider`-abstraksjon** (tjenst i datalaget) med implementasjoner:
-      `OpenAiProvider`, `AnthropicProvider`, `OllamaProvider`, `LmStudioProvider`,
-      `CustomOpenAiCompatibleProvider`. (Ollama og LM Studio snakker OpenAI-kompatibel API –
-      en klientdekning dekker de fleste tilfeller.)
-- [ ] **Innstillinger:** velg leverandør, base-URL, modell, system-oppsett; lagre API-nøkkel
-      i `flutter_secure_storage` (Keychain/Keystore). «Test tilkobling»-knapp.
-- [ ] **Funksjoner:**
-      - «Foreslå struktur» → returnerer et forslag til seksjoner (renderes som en gjenbruksbar mal).
-      - «Skrivehjelp i editor» → utvid/omskriv/oppsummer et utvalg eller en seksjon.
-      - «Generer rutineliste» → fra en beskrivelse eller (senere) et bilde av en notis.
-- [ ] **Streaming-svar** i UI, avbrytbar; tydelig skille mellom «lokal» og «cloud» (privatliv).
-- [ ] **Feilbehandling:** offline, tidsfrist, feil nøkkel, modell finnes ikke – med klare meldinger.
+- [x] **`AiClient`-abstraksjon** (tjenst i datalaget): `OpenAiCompatibleClient`
+      (dekker OpenAI, Ollama, LM Studio og egen OpenAI-kompatibel) + egen
+      `AnthropicClient` (Claude sitt request/response-format). Felles SSE-parsing
+      (CRLF-sikker, chunk-sikker), status-feilmapping og timeout.
+- [x] **Innstillinger:** leverandør, base-URL, modell, systemprompt (+ avansert:
+      maks token, temperatur); API-nøkkel KUN i `flutter_secure_storage`
+      (Keychain/Keystore), aldri i innstillingsfilen. «Test tilkobling»-knapp.
+- [x] **Funksjoner:**
+      - «Foreslå struktur» → strengt JSON `{"sections":[…]}` som parseres tolerant
+        (code fences, forklaringstekst) → godkjenn/forkast; godkjente seksjoner
+        blir vanlige seksjoner i boka.
+      - «Skrivehjelp i editor» → utvid/omskriv/oppsummer et utvalg (ellers hele
+        teksten); resultatet settes inn i editoren (erstatt utvalg/tekst).
+      - «Generer rutineliste» → `- [ ]`-liste fra teksten i åpnings-/steng-rutiner
+        (tilgjengelig i AI-menyen i editor for disse seksjonene).
+- [x] **Streaming-svar** i UI, avbrytbar; «Lokal» vs «Cloud»-indikator i
+      innstillingene (basert på base-URL) + privatslivstekst.
+- [x] **Feilbehandling:** offline/ukjent feil, tidsfrist (30 s), feil nøkkel (401/403),
+      modell finnes ikke (404), rate-limit (429), 5xx, og uformatert AI-svar
+      (faller tilbake til rå tekst + «Prøv igjen») – alle med norske meldinger.
 
-**Milepæl 4:** Med en lokal Ollama-instans (eller et API-nøkkel) kan brukeren få
-AI-forslag på struktur og utkast til innhold, som kan godkjennes/redigeres som vanlig.
+**Milepæl 4: ✅ nådd** – Med en lokal Ollama-instans (eller et API-nøkkel) kan
+brukeren få AI-forslag på struktur og utkast til innhold, som kan godkjennes/
+redigeres som vanlig.
+
+#### Fase 4 – AI-integrasjon (fullført)
+- **Datapotet** (`lib/data/services/ai_client.dart`, `ai_settings.dart`,
+  `secure_key_store.dart`, `lib/data/repositories/settings_repository.dart`):
+  `AiClient`-abstraksjon (`complete` som streamer + `ping` for tilkoblingstest),
+  `AiClientFactory` (leverandør → klient, injiserbar `httpClient` i tester) og
+  `AiClientBuilder`-typedef for test-injeksjon. `AiSettings` (type, base-URL,
+  modell, systemprompt, maks token, temperatur) med `isLocal` (loopback-deteksjon)
+  og `needsApiKey`; tolerant `fromJson`. Innstillinger lagres som `settings.json`
+  i app-mappen; API-nøkkel i `SecureKeyStore` (iOS Keychain / Android Keystore).
+  `AiProviderError` i `lib/core/errors.dart` bærer norske, brukervenlige meldinger.
+- **Domene** (`lib/domain/ai/`): `AiStructureSuggestion.tryParse` (tolerant mot
+  code fences/forklaring, type-mapping wire-navn → `SectionType`, `null` ved
+  skrott) + `AiPrompts` (strengt JSON-schema for struktur, `- [ ]`-liste for
+  rutiner, utvid/omskriv/oppsummer; alle bygger på brukeren sin systemprompt).
+- **Innstillings-UI** (`lib/ui/features/settings/`): nådd via innstillingsikon
+  i biblioteket (rute `/settings`). Første gang: privatslivsforklaring + valg
+  «lokal» eller «cloud». Deretter form (leverandør-dropper med standard-URL/
+  modell per type, base-URL, modell, API-nøkkel med skjule/vis, systemprompt,
+  avansert-uttrekk, «Test tilkobling»). Alt lagres automatisk (seriert);
+  Lokal/Cloud-indikator følger base-URLen.
+- **Funksjons-UI** (`lib/ui/features/ai/`): felles `AiAssistantViewModel`
+  (streaming, avbrudd, feil, «ikke konfigurert»/«mangler nøkkel»-sjekk) brukt av
+  «Foreslå struktur»-dialogen i hytta (beskrivelse → streaming → parsede
+  seksjoner → «Opprett seksjoner»/«Forkast»; `CabinViewModel.addSections` lager
+  unike slugs og bruker hint som start-Markdown) og skrivehjelp-dialogen i
+  editoren (utvid/omskriv/oppsummer på utvalg eller hele tekst; «Generer
+  rutineliste» for start/steng-rutiner; «Innsett» erstatter utvalget/teksten).
+- **Plattform:** iOS `NSAllowsLocalNetworking` (Info.plist) + Android
+  `network_security_config` (klartekst kun til localhost/127.0.0.1) slik at
+  lokale leverandører (Ollama/LM Studio) fungerer.
+- Tester: enhetstester for SSE-parsing (OpenAI + Anthropic, CRLF/delte chunks/
+  flerbytes tegn, `[DONE]`, keep-alive), status-feilmapping (401/403/404/429/500/
+  418, Socket/Client-exception), factory, `AiSettings` (standarder, round-trip,
+  `isLocal`/`needsApiKey`), `SettingsRepository` (round-trip, tolerant mot
+  ødelagte filer), `AiStructureSuggestion.tryParse` og `AiPrompts`; widget-tester
+  for innstillingsfløten (intro → lokal → cloud → nøkkel i sikker lagring →
+  test tilkobling vellykket/feil, persistens uten nøkkel i filen), strukturforslag
+  (streaming → parse → godkjenn → seksjonene vises; forkast; leverandørfeil;
+  uformatert svar; ikke konfigurert) og editor-AI (rutineliste innsett, utvid
+  tekst, forkast endrer ingenting).
 
 ### Fase 5 – Web og ferdigpolering
 - [ ] **Web-mål:** `flutter build web`, fikse plattformspesifikke deler (kamera/filer via web-API).

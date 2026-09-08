@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'app/app.dart';
 import 'data/repositories/book_repository.dart';
+import 'data/repositories/settings_repository.dart';
 import 'data/services/file_storage_service.dart';
 
 Future<void> main() async {
@@ -13,9 +14,13 @@ Future<void> main() async {
 
   // All data ligger i enhetens dokument-mappe under `hyttebok/`.
   final documents = await getApplicationDocumentsDirectory();
-  final storage = FileStorageService(
-    Directory(p.join(documents.path, 'hyttebok')),
-  );
+  final appDir = Directory(p.join(documents.path, 'hyttebok'));
+  final storage = FileStorageService(appDir);
 
-  runApp(HyttebokApp(repository: BookRepository(storage)));
+  runApp(
+    HyttebokApp(
+      repository: BookRepository(storage),
+      settings: SettingsRepository(appDir),
+    ),
+  );
 }

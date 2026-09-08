@@ -115,6 +115,11 @@ class _LibraryBody extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Hyttebøker'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Innstillinger',
+            onPressed: () => context.push('/settings'),
+          ),
           _themeMenu(context),
           IconButton(
             icon: const Icon(Icons.file_upload_outlined),

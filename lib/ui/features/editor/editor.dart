@@ -5,7 +5,11 @@ import 'package:provider/provider.dart';
 
 import '../../../core/widgets/markdown_preview.dart';
 import '../../../data/repositories/book_repository.dart';
+import '../../../data/repositories/settings_repository.dart';
 import '../../../data/services/image_picker_service.dart';
+import '../../../domain/ai/prompts.dart';
+import '../../../domain/models/section_type.dart';
+import '../../../ui/features/ai/writing_dialog.dart';
 
 /// Input for editor-ruten: hva som redigeres og hvordan.
 class EditorInput {
@@ -14,6 +18,7 @@ class EditorInput {
     required this.initialValue,
     this.hint,
     this.bookSlug,
+    this.sectionType,
   });
 
   final String title;
@@ -24,6 +29,10 @@ class EditorInput {
 
   /// Boken som bildet hører til (for å lagre og vise lokale bilder).
   final String? bookSlug;
+
+  /// Hvilken seksjonstype som redigeres; viser «Generer rutineliste» i
+  /// AI-menyen når det er en start-/steng-rutine.
+  final SectionType? sectionType;
 }
 
 /// Generisk Markdown-editor med fanene «Rediger»/«Forhåndsvis».
@@ -98,6 +107,96 @@ class _EditorViewState extends State<EditorView>
     );
   }
 
+  bool get _isRoutineSection {
+    final type = widget.input.sectionType;
+    return type == SectionType.startRoutines ||
+        type == SectionType.stopRoutines;
+  }
+
+  /// AI-skriverhjelp: utvid/omskriv/oppsummer på markert (ellers hele)
+  /// tekst, eller generer en rutineliste basert på teksten.
+  Future<void> _aiAction(String action) async {
+    final settings = context.read<SettingsRepository>().loadAiSettings();
+    if (settings == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('AI er ikke konfigurert. Åpne Innstillinger → AI.'),
+        ),
+      );
+      return;
+    }
+    final base = settings.systemPrompt;
+    final value = _controller.value;
+    final selected =
+        value.selection.isValid && value.selection.start != value.selection.end
+        ? value.text.substring(value.selection.start, value.selection.end)
+        : '';
+    final source = selected.isNotEmpty ? selected : value.text.trim();
+    if (source.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Skriv eller marker tekst først.')),
+      );
+      return;
+    }
+
+    String title;
+    String system;
+    String user;
+    switch (action) {
+      case 'extend':
+        title = 'Utvid teksten';
+        system = AiPrompts.writingSystem(base, AiWritingInstruction.extend);
+        user = AiPrompts.writingUser(source);
+      case 'rewrite':
+        title = 'Omskriv teksten';
+        system = AiPrompts.writingSystem(base, AiWritingInstruction.rewrite);
+        user = AiPrompts.writingUser(source);
+      case 'summarize':
+        title = 'Oppsummer teksten';
+        system = AiPrompts.writingSystem(base, AiWritingInstruction.summarize);
+        user = AiPrompts.writingUser(source);
+      case 'routine':
+        final isStart = widget.input.sectionType == SectionType.startRoutines;
+        title = 'Generer rutineliste';
+        system = AiPrompts.routineSystem(base);
+        user = AiPrompts.routineUser(source, isStart: isStart);
+      default:
+        return;
+    }
+
+    final result = await showAiWritingDialog(
+      context,
+      title: title,
+      system: system,
+      user: user,
+    );
+    if (result == null || !context.mounted) return;
+    _tabs.animateTo(0);
+    _applyAiResult(result, hasSelection: selected.isNotEmpty);
+  }
+
+  /// Erstatte markert tekst (eller hele teksten) med AI-resultatet.
+  void _applyAiResult(String result, {required bool hasSelection}) {
+    final value = _controller.value;
+    if (hasSelection) {
+      final sel = value.selection;
+      final before = value.text.substring(0, sel.start);
+      final after = value.text.substring(sel.end);
+      final text = before + result + after;
+      _controller.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(
+          offset: before.length + result.length,
+        ),
+      );
+    } else {
+      _controller.value = TextEditingValue(
+        text: result,
+        selection: TextSelection.collapsed(offset: result.length),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bookSlug = widget.input.bookSlug;
@@ -112,6 +211,32 @@ class _EditorViewState extends State<EditorView>
           ],
         ),
         actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.auto_awesome),
+            tooltip: 'AI-hjelp',
+            onSelected: _aiAction,
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'extend',
+                child: Text('Utvid teksten'),
+              ),
+              const PopupMenuItem(
+                value: 'rewrite',
+                child: Text('Omskriv teksten'),
+              ),
+              const PopupMenuItem(
+                value: 'summarize',
+                child: Text('Oppsummer teksten'),
+              ),
+              if (_isRoutineSection) ...[
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'routine',
+                  child: Text('Generer rutineliste'),
+                ),
+              ],
+            ],
+          ),
           TextButton(
             onPressed: () => context.pop(_controller.text),
             child: const Text('Lagre'),

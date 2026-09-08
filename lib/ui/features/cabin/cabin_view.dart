@@ -8,7 +8,9 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../data/repositories/book_repository.dart';
 import '../../../domain/models/section.dart';
+import '../../../domain/models/section_type.dart';
 import '../../../domain/models/story.dart';
+import '../../../ui/features/ai/structure_suggestion_dialog.dart';
 import '../../../ui/features/editor/editor.dart';
 import 'cabin_view_model.dart';
 
@@ -40,6 +42,7 @@ class _CabinBody extends StatelessWidget {
     required String initial,
     required String bookSlug,
     String? hint,
+    SectionType? sectionType,
   }) {
     return context.push<String>(
       '/editor',
@@ -48,6 +51,7 @@ class _CabinBody extends StatelessWidget {
         initialValue: initial,
         bookSlug: bookSlug,
         hint: hint,
+        sectionType: sectionType,
       ),
     );
   }
@@ -61,6 +65,21 @@ class _CabinBody extends StatelessWidget {
     );
     if (title == null) return;
     await vm.addSection(title);
+  }
+
+  /// AI foreslår en seksjonsstruktur basert på hyttebeskrivelsen; godkjente
+  /// forslag blir vanlige seksjoner i boka.
+  Future<void> _suggestStructure(
+    BuildContext context,
+    CabinViewModel vm,
+  ) async {
+    final cabin = vm.cabin;
+    if (cabin == null) return;
+    await showAiStructureDialog(
+      context,
+      description: cabin.description,
+      onApprove: (suggestion) => vm.addSections(suggestion.sections),
+    );
   }
 
   Future<void> _addStory(BuildContext context, CabinViewModel vm) async {
@@ -201,6 +220,7 @@ class _CabinBody extends StatelessWidget {
       title: section.title,
       initial: section.markdown,
       bookSlug: vm.bookSlug,
+      sectionType: section.type,
     );
     if (text != null) await vm.updateSectionMarkdown(section.slug, text);
   }
@@ -288,6 +308,7 @@ class _CabinBody extends StatelessWidget {
                 initial: cabin.startRoutines.markdown,
                 bookSlug: vm.bookSlug,
                 hint: '- [ ] oppgave',
+                sectionType: SectionType.startRoutines,
               );
               if (text != null) await vm.updateStart(text);
             },
@@ -303,6 +324,7 @@ class _CabinBody extends StatelessWidget {
                 initial: cabin.stopRoutines.markdown,
                 bookSlug: vm.bookSlug,
                 hint: '- [ ] oppgave',
+                sectionType: SectionType.stopRoutines,
               );
               if (text != null) await vm.updateStop(text);
             },
@@ -388,6 +410,14 @@ class _CabinBody extends StatelessWidget {
                   onTap: () {
                     Navigator.pop(sheetContext);
                     _addSection(context, vm);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.auto_awesome),
+                  title: const Text('Foreslå struktur (AI)'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _suggestStructure(context, vm);
                   },
                 ),
                 ListTile(

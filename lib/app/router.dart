@@ -5,6 +5,7 @@ import '../ui/features/book/book_view.dart';
 import '../ui/features/cabin/cabin_view.dart';
 import '../ui/features/editor/editor.dart';
 import '../ui/features/library/library_view.dart';
+import '../ui/features/settings/settings_view.dart';
 
 /// Bygger appens ruter. Opprettes per app-instans (test-vennlig).
 GoRouter buildRouter() {
@@ -12,6 +13,10 @@ GoRouter buildRouter() {
     initialLocation: '/',
     routes: [
       GoRoute(path: '/', builder: (context, state) => const LibraryView()),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsView(),
+      ),
       GoRoute(
         path: '/book/:slug',
         builder: (context, state) =>

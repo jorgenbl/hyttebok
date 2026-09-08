@@ -39,3 +39,21 @@ class InvalidBookFile implements Exception {
   @override
   String toString() => 'Kunne ikke importere boken: $message';
 }
+
+/// Feil fra en AI-leverandør. [message] er på norsk og kan vises rett til
+/// brukeren; [statusCode] og [cause] er tekniske detaljer for feillogging.
+class AiProviderError implements Exception {
+  AiProviderError(this.message, {this.statusCode, this.cause});
+
+  /// Brukervenlig melding (Bokmål).
+  final String message;
+
+  /// HTTP-statuskode fra leverandøren, om tilgjengelig.
+  final int? statusCode;
+
+  /// Rå feiltekst / unntak fra leverandøren (klippet), om noen.
+  final Object? cause;
+
+  @override
+  String toString() => 'AiProviderError: $message';
+}

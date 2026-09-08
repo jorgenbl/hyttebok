@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/utils/slug.dart';
 import '../../../data/repositories/book_repository.dart';
+import '../../../domain/ai/structure_suggestion.dart';
 import '../../../domain/models/cabin.dart';
 import '../../../domain/models/section.dart';
 import '../../../domain/models/story.dart';
@@ -90,6 +91,47 @@ class CabinViewModel extends ChangeNotifier {
     );
     await _save(c.copyWith(sections: [...c.sections, section]));
     return candidate;
+  }
+
+  /// Oppretter seksjoner fra et godkjent AI-strukturforslag.
+  ///
+  /// Hver foreslåtte seksjon blir en vanlig seksjon i boka (også for type
+  /// start/stop — faste åpne/steng-rutiner ligger separat på hytten), og
+  /// ledeteksten blir start-Markdown. Slugene gjøres unike på samme måte som
+  /// i [addSection].
+  Future<void> addSections(List<SuggestedSection> suggested) async {
+    final c = _cabin!;
+    final existing = {
+      ...c.sections.map((s) => s.slug),
+      'cabin',
+      'start-rutiner',
+      'steng-rutiner',
+    };
+    final added = <Section>[];
+    var order = c.sections.length;
+    for (final s in suggested) {
+      var base = slugify(s.title);
+      if (base.isEmpty) base = 'seksjon';
+      var candidate = base;
+      var i = 2;
+      while (existing.contains(candidate)) {
+        candidate = '$base-$i';
+        i++;
+      }
+      existing.add(candidate);
+      added.add(
+        Section(
+          slug: candidate,
+          title: s.title,
+          markdown: s.hint,
+          type: s.type,
+          order: order,
+        ),
+      );
+      order++;
+    }
+    if (added.isEmpty) return;
+    await _save(c.copyWith(sections: [...c.sections, ...added]));
   }
 
   Future<void> updateSectionMarkdown(String sectionSlug, String markdown) =>

@@ -10,6 +10,12 @@
 	<string>Hyttebok trenger tilgang til bildene dine for å legge dem inn i boken.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Hyttebok kan lagre bilder i galleriet.</string>
+	<!-- Tillater klartekst-HTTP kun til localhost (lokale AI-leverandører som Ollama/LM Studio). -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
