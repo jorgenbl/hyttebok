@@ -8,6 +8,7 @@ import 'package:hyttebok/data/repositories/settings_repository.dart';
 import 'package:hyttebok/data/services/ai_client.dart';
 import 'package:hyttebok/data/services/ai_settings.dart';
 import 'package:hyttebok/data/services/file_storage_service.dart';
+import 'package:hyttebok/data/services/file_text_key_value_store.dart';
 import 'package:hyttebok/data/services/secure_key_store.dart';
 import 'package:hyttebok/domain/models/book.dart';
 import 'package:hyttebok/domain/models/cabin.dart';
@@ -108,7 +109,7 @@ void main() {
   ) async {
     final appDir = Directory('${tempDir.path}/app')
       ..createSync(recursive: true);
-    final settingsRepo = SettingsRepository(appDir);
+    final settingsRepo = SettingsRepository(FileTextKeyValueStore(appDir));
     await tester.runAsync(
       () => settingsRepo.saveAiSettings(
         const AiSettings(

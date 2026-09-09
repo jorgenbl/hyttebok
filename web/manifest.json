@@ -1,11 +1,11 @@
 {
-    "name": "hyttebok",
-    "short_name": "hyttebok",
+    "name": "Hyttebok",
+    "short_name": "Hyttebok",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F7F5EF",
+    "theme_color": "#F7F5EF",
+    "description": "Dine hytter, rutiner og historier i én bok.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

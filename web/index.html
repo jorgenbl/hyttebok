@@ -18,7 +18,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Hyttebok – dine hytter, rutiner og historier i én bok.">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -29,10 +29,36 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>hyttebok</title>
+  <style>
+    /* Startside: krem bakgrunn + hytte-glyf midt i, til Flutter er lastet. */
+    html, body { margin: 0; height: 100%; }
+    body {
+      background-color: #F7F5EF;
+      background-image: url(icons/Icon-192.png);
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 96px 96px;
+    }
+  </style>
+
+  <title>Hyttebok</title>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <!--
+    Brukes av lib/core/io/file_export_web.dart: utløser en filnedlasting
+    (data-URL) i nettleseren når appen eksporterer en bok på web.
+  -->
+  <script>
+    window.hyttebokDownload = function (filename, dataUrl) {
+      var a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    };
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

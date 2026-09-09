@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -57,13 +58,15 @@ class _LibraryBody extends StatelessWidget {
   }
 
   /// Plukker en fil (`.md` eller `.zip`) og importerer den som en ny bok.
+  ///
+  /// Filen leses som byteer (ingen filsystem-sti) slik at det fungerer like
+  /// godt på web som på mobil.
   Future<void> _importBook(BuildContext context, LibraryViewModel vm) async {
     final messenger = ScaffoldMessenger.of(context);
     final picked = await context.read<FilePickerService>().pickBookFile();
-    final path = picked?.path;
-    if (path == null || !context.mounted) return;
+    if (picked == null || !context.mounted) return;
     try {
-      final slug = await vm.importBook(path);
+      final slug = await vm.importBook(picked.name, picked.bytes);
       if (context.mounted) context.go('/book/$slug');
     } on InvalidBookFile catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
@@ -72,6 +75,33 @@ class _LibraryBody extends StatelessWidget {
         const SnackBar(content: Text('Kunne ikke importere boken.')),
       );
     }
+  }
+
+  /// Banner for web: bøkene ligger i minnet under økten, ikke på disk.
+  Widget _webSessionBanner(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: scheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.cloud_off_outlined, color: scheme.onSecondaryContainer),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Web-versjonen lagrer bøkene i minnet under økten – de forsvinner '
+              'når fanen stenges. Bruk «Del / eksporter» for å ta en bok med '
+              'deg, og importer den på nytt senere.',
+              style: TextStyle(color: scheme.onSecondaryContainer),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _themeMenu(BuildContext context) => PopupMenuButton<ThemeMode>(
@@ -128,37 +158,46 @@ class _LibraryBody extends StatelessWidget {
           ),
         ],
       ),
-      body: vm.loading && books.isEmpty
-          ? const SkeletonList()
-          : books.isEmpty
-          ? const EmptyState(
-              icon: Icons.menu_book,
-              message:
-                  'Ingen hyttebøker ennå.\nTrykk på + for å opprette din '
-                  'første bok.',
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.only(bottom: 96),
-              itemCount: books.length,
-              itemBuilder: (context, index) {
-                final meta = books[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+      body: Column(
+        children: [
+          if (kIsWeb) _webSessionBanner(context),
+          Expanded(
+            child: vm.loading && books.isEmpty
+                ? const SkeletonList()
+                : books.isEmpty
+                ? const EmptyState(
+                    icon: Icons.menu_book,
+                    message:
+                        'Ingen hyttebøker ennå.\nTrykk på + for å opprette din '
+                        'første bok.',
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 96),
+                    itemCount: books.length,
+                    itemBuilder: (context, index) {
+                      final meta = books[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        child: ListTile(
+                          onTap: () => context.push('/book/${meta.slug}'),
+                          onLongPress: () =>
+                              _delete(context, vm, meta.slug, meta.title),
+                          leading: const Icon(Icons.menu_book),
+                          title: Text(meta.title),
+                          subtitle: Text(
+                            'Sist endret ${formatDate(meta.updatedAt)}',
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                        ),
+                      );
+                    },
                   ),
-                  child: ListTile(
-                    onTap: () => context.push('/book/${meta.slug}'),
-                    onLongPress: () =>
-                        _delete(context, vm, meta.slug, meta.title),
-                    leading: const Icon(Icons.menu_book),
-                    title: Text(meta.title),
-                    subtitle: Text('Sist endret ${formatDate(meta.updatedAt)}'),
-                    trailing: const Icon(Icons.chevron_right),
-                  ),
-                );
-              },
-            ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _newBook(context),
         tooltip: 'Ny bok',

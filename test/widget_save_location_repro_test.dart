@@ -78,10 +78,12 @@ void main() {
 
   /// La async fil-io-kjeder (writeBook med create/delete/writeAsString)
   /// fullføre: runAsync-vinduer + pump UTEN tidsfremskudd.
+  /// Hver runde lar event-loopet prosessere et steg i kjeden; kjeder med
+  /// mange awaits trenger flere runder enn én save.
   Future<void> settleSave(WidgetTester tester) async {
-    for (var i = 0; i < 30; i++) {
+    for (var i = 0; i < 100; i++) {
       await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 120)),
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
       );
       await tester.pump();
     }

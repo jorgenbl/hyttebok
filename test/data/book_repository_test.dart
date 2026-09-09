@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -119,11 +120,10 @@ void main() {
     }
 
     test(
-      'exportSingleFile + importFromMarkdown bevarer innhold og bilder',
+      'exportSingleFileBytes + importFromMarkdown bevarer innhold og bilder',
       () async {
         final storage = FileStorageService(Directory('${tempDir.path}/books'));
-        final exportDir = Directory('${tempDir.path}/export');
-        final repo = BookRepository(storage, exportDir: exportDir);
+        final repo = BookRepository(storage);
 
         final slug = await seedBook(
           storage,
@@ -133,11 +133,8 @@ void main() {
           imageBytes: Uint8List.fromList([1, 2, 3, 4, 5]),
         );
 
-        final mdPath = await repo.exportSingleFile(slug);
-        expect(File(mdPath).existsSync(), isTrue);
-        expect(mdPath, endsWith('.md'));
-
-        final content = File(mdPath).readAsStringSync();
+        final mdBytes = await repo.exportSingleFileBytes(slug);
+        final content = utf8.decode(mdBytes);
         expect(content, contains('data:image/jpeg;base64,'));
 
         final newSlug = await repo.importFromMarkdown(content);
@@ -164,40 +161,42 @@ void main() {
       },
     );
 
-    test('exportZip + importFromZip round-tripper med bilder', () async {
-      final storage = FileStorageService(Directory('${tempDir.path}/books2'));
-      final exportDir = Directory('${tempDir.path}/export2');
-      final repo = BookRepository(storage, exportDir: exportDir);
+    test(
+      'exportZipBytes + importFromZipBytes round-tripper med bilder',
+      () async {
+        final storage = FileStorageService(Directory('${tempDir.path}/books2'));
+        final repo = BookRepository(storage);
 
-      final slug = await seedBook(
-        storage,
-        title: 'Vinterhytta',
-        location: 'Dombås',
-        imageExt: 'png',
-        imageBytes: Uint8List.fromList([9, 8, 7, 6]),
-      );
+        final slug = await seedBook(
+          storage,
+          title: 'Vinterhytta',
+          location: 'Dombås',
+          imageExt: 'png',
+          imageBytes: Uint8List.fromList([9, 8, 7, 6]),
+        );
 
-      final zipPath = await repo.exportZip(slug);
-      expect(File(zipPath).existsSync(), isTrue);
-      expect(zipPath, endsWith('.zip'));
+        final zipBytes = await repo.exportZipBytes(slug);
+        // Zip-magic: PK\x03\x04
+        expect(zipBytes.sublist(0, 2), [0x50, 0x4B]);
 
-      final newSlug = await repo.importFromZip(zipPath);
-      expect(newSlug, isNot(equals(slug)));
+        final newSlug = await repo.importFromZipBytes(zipBytes);
+        expect(newSlug, isNot(equals(slug)));
 
-      final imported = await storage.readBook(newSlug);
-      final cabin = imported.cabins.single;
-      expect(cabin.name, equals('Vinterhytta'));
-      expect(cabin.location, equals('Dombås'));
-      expect(cabin.description, equals('Koselig hytte med peis.'));
+        final imported = await storage.readBook(newSlug);
+        final cabin = imported.cabins.single;
+        expect(cabin.name, equals('Vinterhytta'));
+        expect(cabin.location, equals('Dombås'));
+        expect(cabin.description, equals('Koselig hytte med peis.'));
 
-      // I zip-mappen kopieres bildene slik de er (ingen omnavngivning).
-      final ref = cabin.sections.first.images.single;
-      expect(ref, equals('images/fasade.png'));
-      expect(
-        File('${storage.bookRootPath(newSlug)}/$ref').readAsBytesSync(),
-        equals([9, 8, 7, 6]),
-      );
-    });
+        // I zip-pakken kopieres bildene slik de er (ingen omnavngivning).
+        final ref = cabin.sections.first.images.single;
+        expect(ref, equals('images/fasade.png'));
+        expect(
+          File('${storage.bookRootPath(newSlug)}/$ref').readAsBytesSync(),
+          equals([9, 8, 7, 6]),
+        );
+      },
+    );
 
     test('importFromMarkdown kaster InvalidBookFile for tom innhold', () async {
       final storage = FileStorageService(Directory('${tempDir.path}/books3'));
@@ -208,24 +207,20 @@ void main() {
       );
     });
 
-    test('importFromPath kaster InvalidBookFile for ukjent filtype', () async {
+    test('importFromBytes kaster InvalidBookFile for ukjent filtype', () async {
       final storage = FileStorageService(Directory('${tempDir.path}/books4'));
       final repo = BookRepository(storage);
-      final txt = File('${tempDir.path}/note.txt')
-        ..writeAsStringSync('heisann');
       await expectLater(
-        repo.importFromPath(txt.path),
+        repo.importFromBytes('notat.txt', Uint8List.fromList([1, 2, 3])),
         throwsA(isA<InvalidBookFile>()),
       );
     });
 
-    test('importFromZip kaster InvalidBookFile for ikke-zip', () async {
+    test('importFromZipBytes kaster InvalidBookFile for ikke-zip', () async {
       final storage = FileStorageService(Directory('${tempDir.path}/books5'));
       final repo = BookRepository(storage);
-      final fake = File('${tempDir.path}/fake.zip')
-        ..writeAsStringSync('ikkje ei zip');
       await expectLater(
-        repo.importFromZip(fake.path),
+        repo.importFromZipBytes(Uint8List.fromList('ikkje ei zip'.codeUnits)),
         throwsA(isA<InvalidBookFile>()),
       );
     });

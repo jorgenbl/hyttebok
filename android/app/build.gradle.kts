@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "com.example.hyttebok"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_secure_storage og permission_handler_android krever compileSdk 37.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

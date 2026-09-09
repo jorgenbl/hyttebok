@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -98,14 +97,16 @@ abstract class _BaseAiClient implements AiClient {
       throw AiProviderError(
         'Tiden ran ut ved tilkobling til AI-leverandøren. Prøv igjen.',
       );
-    } on SocketException {
-      throw AiProviderError(
-        'Kan ikke nå AI-leverandøren. Kontroller nettverket – '
-        'kjører den lokale leverandøren?',
-      );
     } on http.ClientException catch (e) {
       throw AiProviderError(
         'Kan ikke nå AI-leverandøren: ${e.message}',
+        cause: e,
+      );
+    } on Object catch (e) {
+      // Nettverksfeil (SocketException på mobil, XHR/TypeError på web).
+      throw AiProviderError(
+        'Kan ikke nå AI-leverandøren. Kontroller nettverket – '
+        'kjører den lokale leverandøren?',
         cause: e,
       );
     }

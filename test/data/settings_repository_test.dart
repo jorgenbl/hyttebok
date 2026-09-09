@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyttebok/data/repositories/settings_repository.dart';
 import 'package:hyttebok/data/services/ai_settings.dart';
+import 'package:hyttebok/data/services/file_text_key_value_store.dart';
 
 void main() {
   late Directory tempDir;
@@ -10,7 +11,7 @@ void main() {
 
   setUp(() {
     tempDir = Directory.systemTemp.createTempSync('hyttebok-settings-');
-    repo = SettingsRepository(tempDir);
+    repo = SettingsRepository(FileTextKeyValueStore(tempDir));
   });
 
   tearDown(() {

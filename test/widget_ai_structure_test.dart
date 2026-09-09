@@ -9,6 +9,7 @@ import 'package:hyttebok/data/repositories/settings_repository.dart';
 import 'package:hyttebok/data/services/ai_client.dart';
 import 'package:hyttebok/data/services/ai_settings.dart';
 import 'package:hyttebok/data/services/file_storage_service.dart';
+import 'package:hyttebok/data/services/file_text_key_value_store.dart';
 import 'package:hyttebok/data/services/secure_key_store.dart';
 import 'package:hyttebok/domain/models/book.dart';
 import 'package:hyttebok/domain/models/cabin.dart';
@@ -64,12 +65,18 @@ Future<void> settleFrames(WidgetTester tester, {int count = 12}) async {
 }
 
 /// La async fil-io-kjeder fullføre.
-Future<void> settleSave(WidgetTester tester) async {
-  for (var i = 0; i < 30; i++) {
+///
+/// Hver `runAsync`-runde lar event-loopet prosessere et steg i kjeden, så
+/// kjeder med mange awaits (load → save → load) trenger flere runder enn
+/// én save. [done] lar kalleren stoppe så snart den forventede tilstanden er
+/// nådd (ellers kjøres hele budsjettet).
+Future<void> settleSave(WidgetTester tester, {bool Function()? done}) async {
+  for (var i = 0; i < 100; i++) {
     await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 120)),
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
     );
     await tester.pump();
+    if (done != null && done()) return;
   }
 }
 
@@ -122,7 +129,7 @@ void main() {
   }) async {
     final appDir = Directory('${tempDir.path}/app')
       ..createSync(recursive: true);
-    final settingsRepo = SettingsRepository(appDir);
+    final settingsRepo = SettingsRepository(FileTextKeyValueStore(appDir));
     if (withSettings) {
       await tester.runAsync(
         () => settingsRepo.saveAiSettings(
@@ -198,7 +205,10 @@ void main() {
 
       // Godkjenn → seksjonene lander i hytta.
       await tester.tap(find.widgetWithText(FilledButton, 'Opprett seksjoner'));
-      await settleSave(tester);
+      await settleSave(
+        tester,
+        done: () => find.text('Opprett seksjoner').evaluate().isEmpty,
+      );
       await settleFrames(tester);
 
       // Dialogen er lukket; seksjonene vises på hyttesiden.

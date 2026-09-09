@@ -1,26 +1,22 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import 'app/app.dart';
 import 'data/repositories/book_repository.dart';
 import 'data/repositories/settings_repository.dart';
-import 'data/services/file_storage_service.dart';
+import 'data/services/create_storages.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // All data ligger i enhetens dokument-mappe under `hyttebok/`.
-  final documents = await getApplicationDocumentsDirectory();
-  final appDir = Directory(p.join(documents.path, 'hyttebok'));
-  final storage = FileStorageService(appDir);
+  // Plattformvalgt lagring (betinget import):
+  // - Mobil: alt i appens dokument-mappe under `hyttebok/`.
+  // - Web: bøker i minnet under økten, innstillinger i `localStorage`.
+  final storages = await createStorages();
 
   runApp(
     HyttebokApp(
-      repository: BookRepository(storage),
-      settings: SettingsRepository(appDir),
+      repository: BookRepository(storages.books),
+      settings: SettingsRepository(storages.settings),
     ),
   );
 }

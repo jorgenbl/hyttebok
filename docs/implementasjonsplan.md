@@ -282,13 +282,52 @@ redigeres som vanlig.
   tekst, forkast endrer ingenting).
 
 ### Fase 5 – Web og ferdigpolering
-- [ ] **Web-mål:** `flutter build web`, fikse plattformspesifikke deler (kamera/filer via web-API).
-- [ ] **PDF-utskrift** av boken (direkte utskrift / lagre PDF).
-- [ ] **Automatiserte integrasjonstester** (`flutter drive` / `integration_test`).
-- [ ] **Butikksomheting:** ikoner, skjærmyr, beskrivelser, bygg for iOS/Android.
-- [ ] **Dokumentasjon:** oppdater README, skrive en «Brukerveiledning».
+- [x] **Web-mål:** `flutter build web`, fikse plattformspesifikke deler (kamera/filer via web-API).
+- [x] **PDF-utskrift** av boken (direkte utskrift / lagre PDF).
+- [x] **Automatiserte integrasjonstester** (`flutter drive` / `integration_test`).
+- [x] **Butikksomheting:** ikoner, skjærmyr, beskrivelser, bygg for iOS/Android.
+- [x] **Dokumentasjon:** oppdater README, skrive en «Brukerveiledning».
 
-**Milepæl 5:** Appen bygges for iOS, Android og web; kan eksporteres til PDF.
+**Milepæl 5: ✅ nådd** – Appen bygges for iOS, Android og web; kan eksporteres
+til PDF; en e2e-integrasjonstest (opprett → skriv → eksport → import →
+sammenlign) kjører grønn på iOS-simulator.
+
+#### Fase 5 – Web og ferdigpolering (fullført)
+- **Web (F17):** `dart:io` er fjernet fra hele web-kompilert bane.
+  `BookStorage`-grensesnitt med to implementasjoner: `FileStorageService`
+  (filmappe, mobil) og `InMemoryBookStorage` (web-økt). Delbar, rein
+  `book_files.dart`-serialiserer (frontmatter + mappestruktur) brukt av begge.
+  `BookRepository` er ren Dart (bytter/strenger, ingen `dart:io`) og
+  eksporterer/importerer som `Uint8List` — web nedlaster via
+  `window.hyttebokDownload` (data-URL) i `web/index.html`, mobil skriver til
+  temp og åpner OS-delingsarket. `TextKeyValueStore` (fil vs `localStorage`)
+  for innstillinger. Betingede eksporter
+  (`create_storages.dart`, `file_export.dart` med
+  `if (dart.library.js_interop)`). `kIsWeb`-guards: kamera → galleri,
+  «Del» → nedlasting, web-banner i biblioteket som forklarer økt-lagring.
+  `flutter build web` grønt; manifest/tittel/beskrivelse satt.
+- **PDF (F18):** `pdf` + `printing` — «Eksporter som PDF» i bokens
+  delingsmeny render forsiden, hytter, rutiner, seksjoner og historier og
+  gir valgfri utskrift/lagring via `Printing.layoutPdf`.
+- **Integrasjonstester:** `integration_test/e2e_test.dart` kjører appen på
+  ekte simulator med reell fil-io: opprett bok → lag hytte → skriv
+  beskrivelse + åpne-rutiner → eksporter zip (PK-header-sjekk) → import til
+  ny lagring → sammenlign tittel/intro/hytte/beskrivelse/rutiner →
+  round-trip i UI (åpn redigereren, teksten er der).
+- **Butikksomheting:** generert app-ikon (krem + furugrønn hytte med åpen
+  bok) i alle iOS/Android/web-størrelser inkl. maskable-variant; startsider
+  (splash) med samme glyf på iOS/Android/web; `docs/butikkbeskrivelser.md`
+  med App Store/Play-tekster (subtittel, keywords, beskrivelse, grafiske
+  krav, privatliv). Build: `flutter build ios --simulator`,
+  `flutter build apk --debug` (krever `compileSdk = 37` — plugins
+  `flutter_secure_storage` og `permission_handler_android`) og
+  `flutter build web`, alle grøne.
+- **Dokumentasjon:** README oppdatert (web som mål, PDF, AI ikke «senere»,
+  bygg-/testkommandoer) + ny `docs/brukerveiledning.md` (bibliotek, bøker,
+  hytter, rutiner, seksjoner, galleri, historier, AI, eksport/import,
+  innstillinger, web, FAQ).
+- Tester: full suite grønn (enhet + widget) + e2e grønn på iOS-simulator.
+  `dart analyze` uten funn.
 
 ---
 

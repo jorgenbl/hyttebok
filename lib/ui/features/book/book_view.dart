@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/errors.dart';
+import '../../../core/io/file_export.dart';
 import '../../../core/widgets/dialogs.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/skeleton.dart';
@@ -105,8 +108,10 @@ class _BookBody extends StatelessWidget {
     if (ok) await vm.deleteCabin(cabin.slug);
   }
 
-  /// Eksporterer boka (én `.md`-fil eller `.zip`) og deler den via
-  /// delingsmenyen. [zip] velger format.
+  /// Eksporterer boka (én `.md`-fil eller `.zip`). [zip] velger format.
+  ///
+  /// Mobil: filen skrives til temp og åpnes i delingsmenyen.
+  /// Web: filen lastes ned i nettleseren.
   Future<void> _shareAs(
     BuildContext context,
     BookViewModel vm, {
@@ -116,19 +121,61 @@ class _BookBody extends StatelessWidget {
     final repo = context.read<BookRepository>();
     final share = context.read<ShareService>();
     final title = vm.book?.title ?? 'Hyttebok';
+    final ext = zip ? 'zip' : 'md';
+    final name = _exportFileName(title, ext);
     try {
-      final path = zip
-          ? await repo.exportZip(vm.slug)
-          : await repo.exportSingleFile(vm.slug);
-      final shared = await share.shareFile(path, subject: title);
-      if (shared) {
-        messenger.showSnackBar(const SnackBar(content: Text('Boken er delt.')));
+      final bytes = zip
+          ? await repo.exportZipBytes(vm.slug)
+          : await repo.exportSingleFileBytes(vm.slug);
+      if (kIsWeb) {
+        downloadBytes(name, bytes);
+        messenger.showSnackBar(
+          SnackBar(content: Text('Boken ble lastet ned som $name.')),
+        );
+      } else {
+        final path = await writeExportFile(name, bytes);
+        final shared = await share.shareFile(path, subject: title);
+        if (shared) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Boken er delt.')),
+          );
+        }
       }
     } on InvalidBookFile catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Kunne ikke dele boken.')),
+      );
+    }
+  }
+
+  /// Filsystem-trygt filnavn fra en tittel.
+  static String _exportFileName(String title, String ext) {
+    var name = title.trim().replaceAll(RegExp(r'[\\/:*?"<>|]'), '-');
+    name = name.replaceAll(RegExp(r'\s+'), ' ');
+    if (name.isEmpty) name = 'bok';
+    return '$name.$ext';
+  }
+
+  /// Eksporterer boka til PDF og åpner plattformens utskriftsdialog (F18) –
+  /// der kan brukeren skrive ut, lagre PDF eller dele den.
+  Future<void> _exportPdf(BuildContext context, BookViewModel vm) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final repo = context.read<BookRepository>();
+    final title = vm.book?.title ?? 'Hyttebok';
+    try {
+      // [Printing.layoutPdf] kaller [onLayout] (eventuelt flere ganger ved
+      // endret format/retning); PDF-en bygges på nytt per layout.
+      await Printing.layoutPdf(
+        name: title.trim().replaceAll(RegExp(r'[\\/:*?"<>|]'), '_'),
+        onLayout: (format) => repo.exportPdfBytes(vm.slug, pageFormat: format),
+      );
+    } on InvalidBookFile catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Kunne ikke lage PDF av boken.')),
       );
     }
   }
@@ -171,11 +218,14 @@ class _BookBody extends StatelessWidget {
                 _shareAs(context, vm, zip: false);
               } else if (value == 'zip') {
                 _shareAs(context, vm, zip: true);
+              } else if (value == 'pdf') {
+                _exportPdf(context, vm);
               }
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'md', child: Text('Del som Markdown (.md)')),
               PopupMenuItem(value: 'zip', child: Text('Del som mappe (.zip)')),
+              PopupMenuItem(value: 'pdf', child: Text('Eksporter som PDF')),
             ],
           ),
         ],

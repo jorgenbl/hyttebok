@@ -9,6 +9,7 @@ import 'package:hyttebok/data/repositories/settings_repository.dart';
 import 'package:hyttebok/data/services/ai_client.dart';
 import 'package:hyttebok/data/services/ai_settings.dart';
 import 'package:hyttebok/data/services/file_storage_service.dart';
+import 'package:hyttebok/data/services/file_text_key_value_store.dart';
 import 'package:hyttebok/data/services/secure_key_store.dart';
 
 /// Minneste basert [SecureKeyStore] (ingen method channels i widget-tester).
@@ -74,10 +75,13 @@ Future<void> settleFrames(WidgetTester tester, {int count = 12}) async {
 }
 
 /// La async fil-io-kjeder (settings-lagring) fullføre.
+///
+/// Hver `runAsync`-runde lar event-loopet prosessere et steg i kjeden;
+/// kjeder med mange awaits trenger flere runder enn én save.
 Future<void> settleSave(WidgetTester tester) async {
-  for (var i = 0; i < 30; i++) {
+  for (var i = 0; i < 100; i++) {
     await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 120)),
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
     );
     await tester.pump();
   }
@@ -106,7 +110,7 @@ void main() {
 
       final appDir = Directory('${tempDir.path}/app')
         ..createSync(recursive: true);
-      final settingsRepo = SettingsRepository(appDir);
+      final settingsRepo = SettingsRepository(FileTextKeyValueStore(appDir));
       final keyStore = _MemoryKeyStore();
       final fakeClient = _FakeAiClient(true);
 
@@ -203,7 +207,7 @@ void main() {
 
     final appDir = Directory('${tempDir.path}/app')
       ..createSync(recursive: true);
-    final settingsRepo = SettingsRepository(appDir);
+    final settingsRepo = SettingsRepository(FileTextKeyValueStore(appDir));
     // Prefill: OpenAI-konfigurert, ingen nøkkel.
     await tester.runAsync(
       () => settingsRepo.saveAiSettings(

@@ -71,6 +71,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Del som Markdown (.md)'), findsOneWidget);
     expect(find.text('Del som mappe (.zip)'), findsOneWidget);
+    expect(find.text('Eksporter som PDF'), findsOneWidget);
   });
 
   testWidgets('kan importere en bok fra fil i biblioteket', (tester) async {
@@ -89,7 +90,10 @@ void main() {
     });
 
     final fakePicker = _FakeFilePickerService(
-      PickedBookFile(path: mdPath, name: 'importert.md'),
+      PickedBookFile(
+        name: 'importert.md',
+        bytes: File(mdPath).readAsBytesSync(),
+      ),
     );
 
     await pumpWithLoad(

@@ -1,27 +1,30 @@
 # Hyttebok 🏔️📖
 
-**Hyttebok** er en lokal-first mobilapp (Flutter) for å bygge en digital bok om én eller
-flere hytter: start-/steng-rutiner, beskrivelser, bilder, historier og mer. Boken kan
-eksporteres til **Markdown** for å skrives ut, deles og importeres tilbake. Senere
-tilsettes **AI-støtte** (OpenAI, Claude, eller lokale modeller via Ollama/LM Studio) som
-hjelper med oppbygging og struktur.
+**Hyttebok** er en lokal-first app (Flutter) for iOS, Android og web, laget for å
+bygge en digital bok om én eller flere hytter: start-/steng-rutiner, beskrivelser,
+bilder, historier og mer. Boken kan eksporteres til **Markdown**, **zip** eller
+**PDF** for utskrift, deles og importeres tilbake. **AI-støtte** (cloud-API eller
+lokale modeller via Ollama/LM Studio) er valgfri og hjelper med oppbygging,
+struktur og skriving.
 
 ## Kjennetegn
 
-- 📱 **iOS + Android** (web som et senere mål).
+- 📱 **iOS, Android og web** – én kodebase, tre plattformer.
 - 🏠 **Lokal lagring** – alt ligger på enheten. Ingen server, ingen konto, ingen innlogging.
 - 📝 **Markdown-native** – boken *er* en mappe med Markdown-filer + bilder. Lagring = eksport = import.
-- 📤 **Eksport/import** – én Markdown-fil (bilder inlinet) eller en `.zip`-mappe; del via OS-deling.
-- 🤖 **AI (senere)** – cloud-API eller lokale modeller; privatlivsfokus med lokal som trygt valg.
+- 📤 **Eksport/import** – én Markdown-fil (bilder inlinet), `.zip`-mappe eller PDF; del via OS-deling.
+- 🤖 **AI (valgfritt)** – cloud-API eller lokale modeller; privatlivsfokus med lokal som trygt valg.
 
 ## Dokumentasjon
 
 Detaljert plan, arkitektur, filformat og AI-design ligger i [`docs/`](./docs):
 
+- [`docs/brukerveiledning.md`](./docs/brukerveiledning.md) – brukerveiledning til appen.
 - [`docs/implementasjonsplan.md`](./docs/implementasjonsplan.md) – produktkrav, faser, milepæler.
 - [`docs/arkitektur.md`](./docs/arkitektur.md) – lagdelt arkitektur (MVVM), datamodell, pakkevalg.
 - [`docs/markdown-format.md`](./docs/markdown-format.md) – lagrings-/eksport-/importformatet.
 - [`docs/ai-integrasjon.md`](./docs/ai-integrasjon.md) – AI-design.
+- [`docs/butikkbeskrivelser.md`](./docs/butikkbeskrivelser.md) – App Store / Play Store-tekster.
 - [`docs/brukerprompt.md`](./docs/brukerprompt.md) – den opprinnelige prompten.
 
 ## Teknologi
@@ -41,12 +44,26 @@ flutter pub get
 dart analyze
 flutter test
 
-# Kjør appen
+# Kjør appen (velg enhet med -d)
 flutter run
+
+# Bygg for plattformene
+flutter build ios --simulator   # eller: flutter build ipa
+flutter build apk --release     # eller: flutter build appbundle
+flutter build web
+
+# Integrasjonstester (krever tilkoblet enhet/simulator)
+flutter test integration_test -d <enhet>
 ```
 
 Krever [Flutter SDK](https://docs.flutter.dev/get-started/install) (testet mot
 Flutter 3.47.2 / Dart 3.13.2).
+
+## Brukerveiledning
+
+Se [`docs/brukerveiledning.md`](./docs/brukerveiledning.md) for en gjennomgang
+av appen: bibliotek, bøker, hytter, rutiner, seksjoner, galleri, historier,
+AI-hjelp, eksport/import og innstillinger.
 
 ## Utviklerverktøy (agent-skills)
 

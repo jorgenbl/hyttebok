@@ -1,15 +1,18 @@
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 
 /// Et plukket fil, avkjøpt fra `file_picker`'s plattformspecifikke
 /// `PlatformFile`, slik at øvrig kode ikke avhenger av plugin-typen.
 class PickedBookFile {
-  const PickedBookFile({required this.path, required this.name});
-
-  /// Absolutt sti til filen på disk.
-  final String path;
+  const PickedBookFile({required this.name, required this.bytes});
 
   /// Filnavn med endelse (f.eks. `sommehytta.md`).
   final String name;
+
+  /// Filt innhold. Byte-basert (ikke sti) slik at det fungerer like godt
+  /// på web, der plukkede filer ikke har en lokal sti.
+  final Uint8List bytes;
 }
 
 /// Tynn innpakning av `file_picker`: la brukeren plukke én fil å importere.
@@ -19,7 +22,7 @@ class FilePickerService {
   const FilePickerService();
 
   /// Viser plukkeren for én fil. Returnerer `null` hvis brukeren avbrøt eller
-  /// filen ikke har en lokal sti.
+  /// filens innhold ikke kunne leses.
   ///
   /// [allowedExtensions] styrer hvilke filtyper som kan velges; standard er
   /// `md` og `zip` (bokens eksport-/importformater).
@@ -32,8 +35,9 @@ class FilePickerService {
       type: FileType.custom,
       allowedExtensions: allowedExtensions,
     );
-    final path = picked?.path;
-    if (path == null) return null;
-    return PickedBookFile(path: path, name: picked!.name);
+    if (picked == null) return null;
+    final bytes = await picked.readAsBytes();
+    if (bytes.isEmpty) return null;
+    return PickedBookFile(name: picked.name, bytes: bytes);
   }
 }

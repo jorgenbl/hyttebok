@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart' show ImageSource, XFile;
@@ -256,12 +257,15 @@ class _EditorViewState extends State<EditorView>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        IconButton(
-                          tooltip: 'Ta bilde',
-                          icon: const Icon(Icons.photo_camera_outlined),
-                          onPressed: () =>
-                              _addImage(context, ImageSource.camera),
-                        ),
+                        // Web har ingen kamera-plugin; filplukkeren dekkes
+                        // av «Fra galleri».
+                        if (!kIsWeb)
+                          IconButton(
+                            tooltip: 'Ta bilde',
+                            icon: const Icon(Icons.photo_camera_outlined),
+                            onPressed: () =>
+                                _addImage(context, ImageSource.camera),
+                          ),
                         IconButton(
                           tooltip: 'Fra galleri',
                           icon: const Icon(Icons.photo_library_outlined),
