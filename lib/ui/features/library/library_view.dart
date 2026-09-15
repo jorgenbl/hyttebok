@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../app/theme_preference.dart';
 import '../../../core/errors.dart';
 import '../../../core/utils/format.dart';
+import '../../../core/utils/swipe_delete.dart';
 import '../../../core/widgets/dialogs.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/skeleton.dart';
@@ -40,7 +41,9 @@ class _LibraryBody extends StatelessWidget {
     );
     if (title == null) return;
     final slug = await vm.createBook(title);
-    if (context.mounted) context.go('/book/$slug');
+    // push (ikke go): biblioteket skal ligge i historien slik at tilbake-knappen
+    // fungerer når boka er åpen.
+    if (context.mounted) context.push('/book/$slug');
   }
 
   Future<void> _delete(
@@ -57,6 +60,40 @@ class _LibraryBody extends StatelessWidget {
     if (ok) await vm.deleteBook(slug);
   }
 
+  /// Sveip-sletting: boka forsvinner med det samme, men brukeren har
+  /// [swipeDeleteWindow] på seg til å angre – da er ingenting slettet ennå.
+  void _swipeDelete(
+    BuildContext context,
+    LibraryViewModel vm,
+    String slug,
+    String title,
+  ) {
+    final messenger = ScaffoldMessenger.of(context);
+    vm.swipeDelete(slug);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('«$title» slettes om et øyeblikk.'),
+        duration: swipeDeleteWindow,
+        action: SnackBarAction(
+          label: 'Angre',
+          onPressed: () => vm.cancelSwipeDelete(slug),
+        ),
+      ),
+    );
+  }
+
+  /// Rød bakgrunn med slette-ikon bak kortet under sveiping.
+  Widget _swipeBackground(BuildContext context, EdgeInsets margin) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: margin,
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 24),
+      color: scheme.error,
+      child: const Icon(Icons.delete_outline, color: Colors.white),
+    );
+  }
+
   /// Plukker en fil (`.md` eller `.zip`) og importerer den som en ny bok.
   ///
   /// Filen leses som byteer (ingen filsystem-sti) slik at det fungerer like
@@ -67,7 +104,9 @@ class _LibraryBody extends StatelessWidget {
     if (picked == null || !context.mounted) return;
     try {
       final slug = await vm.importBook(picked.name, picked.bytes);
-      if (context.mounted) context.go('/book/$slug');
+      // push (ikke go): biblioteket skal ligge i historien slik at
+      // tilbake-knappen fungerer når boka er åpen.
+      if (context.mounted) context.push('/book/$slug');
     } on InvalidBookFile catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
@@ -176,21 +215,29 @@ class _LibraryBody extends StatelessWidget {
                     itemCount: books.length,
                     itemBuilder: (context, index) {
                       final meta = books[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        child: ListTile(
-                          onTap: () => context.push('/book/${meta.slug}'),
-                          onLongPress: () =>
-                              _delete(context, vm, meta.slug, meta.title),
-                          leading: const Icon(Icons.menu_book),
-                          title: Text(meta.title),
-                          subtitle: Text(
-                            'Sist endret ${formatDate(meta.updatedAt)}',
+                      final margin = const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      );
+                      return Dismissible(
+                        key: ValueKey('bok-${meta.slug}'),
+                        direction: DismissDirection.endToStart,
+                        background: _swipeBackground(context, margin),
+                        onDismissed: (_) =>
+                            _swipeDelete(context, vm, meta.slug, meta.title),
+                        child: Card(
+                          margin: margin,
+                          child: ListTile(
+                            onTap: () => context.push('/book/${meta.slug}'),
+                            onLongPress: () =>
+                                _delete(context, vm, meta.slug, meta.title),
+                            leading: const Icon(Icons.menu_book),
+                            title: Text(meta.title),
+                            subtitle: Text(
+                              'Sist endret ${formatDate(meta.updatedAt)}',
+                            ),
+                            trailing: const Icon(Icons.chevron_right),
                           ),
-                          trailing: const Icon(Icons.chevron_right),
                         ),
                       );
                     },

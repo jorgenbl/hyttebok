@@ -252,4 +252,65 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'test tilkobling: leverandørens feil-detalj vises under meldingen',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final appDir = Directory('${tempDir.path}/app')
+        ..createSync(recursive: true);
+      final settingsRepo = SettingsRepository(FileTextKeyValueStore(appDir));
+      // Prefill: Anthropic-konfigurert (cloud), ingen nøkkel.
+      await tester.runAsync(
+        () => settingsRepo.saveAiSettings(
+          const AiSettings(
+            type: AiProviderType.anthropic,
+            baseUrl: 'https://api.anthropic.com/v1',
+            model: 'claude-sonnet-5',
+          ),
+        ),
+      );
+      final keyStore = _MemoryKeyStore();
+      final fakeClient = _FakeAiClient(
+        AiProviderError(
+          'Uventet svar fra leverandøren (kode 400).',
+          statusCode: 400,
+          cause: 'temperature is not supported for this model',
+        ),
+      );
+
+      await tester.pumpWidget(
+        HyttebokApp(
+          repository: BookRepository(
+            FileStorageService(Directory('${tempDir.path}/books')),
+          ),
+          settings: settingsRepo,
+          secureKeyStore: keyStore,
+          aiClientBuilder: (s, k) => fakeClient,
+        ),
+      );
+      await settleFrames(tester);
+
+      await tester.tap(find.byTooltip('Innstillinger'));
+      await settleFrames(tester);
+
+      // Prefylt Anthropic-form (innstillingene finnes fra før).
+      expect(find.text('Anthropic (Claude)'), findsOneWidget);
+
+      await tester.tap(find.text('Test tilkobling'));
+      await settleFrames(tester);
+      expect(
+        find.text(
+          'Uventet svar fra leverandøren (kode 400).\n'
+          'Leverandøren: temperature is not supported for this model',
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

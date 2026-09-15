@@ -250,7 +250,17 @@ class _CabinBody extends StatelessWidget {
     final hiddenSections = cabin.sections.where((s) => s.hidden).toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text(cabin.name)),
+      appBar: AppBar(
+        title: Text(cabin.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.menu_book),
+            tooltip: 'Les hytta',
+            onPressed: () =>
+                context.push('/book/${vm.bookSlug}/cabin/${vm.cabinSlug}/read'),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 96),
         children: [

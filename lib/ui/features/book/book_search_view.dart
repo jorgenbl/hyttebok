@@ -53,7 +53,9 @@ class _BookSearchBodyState extends State<_BookSearchBody> {
       context.pop();
       return;
     }
-    context.go('/book/${vm.slug}/cabin/$cabinSlug');
+    // push (ikke go): søkehistorikken skal bevares slik at tilbake-knappen
+    // fungerer når hytta er åpen.
+    context.push('/book/${vm.slug}/cabin/$cabinSlug');
   }
 
   IconData _iconFor(SearchResult r) {

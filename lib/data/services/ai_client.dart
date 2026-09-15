@@ -133,19 +133,19 @@ abstract class _BaseAiClient implements AiClient {
   }
 
   static AiProviderError _mapStatusError(int status, String body) {
-    final snippet = body.length > 300 ? body.substring(0, 300) : body;
+    final detail = _providerDetail(body);
     switch (status) {
       case 401 || 403:
         return AiProviderError(
           'Ugyldig eller manglende API-nøkkel. Sjekk AI-innstillingene.',
           statusCode: status,
-          cause: snippet,
+          cause: detail,
         );
       case 404:
         return AiProviderError(
           'Modellen eller endepunktet finnes ikke. Sjekk modell- og URL-felt.',
           statusCode: status,
-          cause: snippet,
+          cause: detail,
         );
       case 429:
         return AiProviderError(
@@ -157,15 +157,34 @@ abstract class _BaseAiClient implements AiClient {
           return AiProviderError(
             'Leverandøren svarte med feil (kode $status). Prøv igjen.',
             statusCode: status,
-            cause: snippet,
+            cause: detail,
           );
         }
         return AiProviderError(
           'Uventet svar fra leverandøren (kode $status).',
           statusCode: status,
-          cause: snippet,
+          cause: detail,
         );
     }
+  }
+
+  /// Leverandørens egen feilmelding, om feil-svaret er JSON med
+  /// `error.message` (både Anthropic og OpenAI-kompatible bruk dette
+  /// formatet). Ellers en klippet råtekst fra kroppen.
+  static String _providerDetail(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic> && decoded['error'] is Map) {
+        final message = (decoded['error'] as Map)['message'];
+        if (message is String && message.trim().isNotEmpty) {
+          final text = message.trim();
+          return text.length > 300 ? text.substring(0, 300) : text;
+        }
+      }
+    } on FormatException {
+      // Ikke-JSON-kropp: fall tilbake til råsnippen.
+    }
+    return body.length > 300 ? body.substring(0, 300) : body;
   }
 
   /// Deler en UTF-8-tekststream inn i linjer (håndterer CRLF og delte
@@ -288,28 +307,41 @@ class AnthropicClient extends _BaseAiClient {
     String? model,
     int? maxTokens,
   }) async* {
-    final body = {
-      'model': model ?? settings.model,
-      'stream': true,
-      'max_tokens': maxTokens ?? settings.maxTokens,
-      'temperature': settings.temperature,
-      'system': system,
-      'messages': [
-        {'role': 'user', 'content': user},
-      ],
-    };
+    // Modeller fra Claude Opus 4.6 og nyere avviser `temperature` ulik 1.0
+    // med 400. Prøv derfor først med innstillingsverdien; en 400 kommer
+    // før noe data er streamet, så en retry uten temperature er trygg og
+    // gir riktig atferd på både gamle og nye modeller.
     final headers = <String, String>{
       'x-api-key': apiKey ?? '',
       'anthropic-version': _anthropicVersion,
     };
-
-    await for (final event in _streamChat(_endpoint, headers, body)) {
-      if (event['type'] != 'content_block_delta') continue;
-      final delta = event['delta'];
-      if (delta is! Map<String, dynamic>) continue;
-      if (delta['type'] != 'text_delta') continue;
-      final text = delta['text'];
-      if (text is String && text.isNotEmpty) yield text;
+    for (final withTemperature in const [true, false]) {
+      final body = {
+        'model': model ?? settings.model,
+        'stream': true,
+        'max_tokens': maxTokens ?? settings.maxTokens,
+        if (withTemperature) 'temperature': settings.temperature,
+        'system': system,
+        'messages': [
+          {'role': 'user', 'content': user},
+        ],
+      };
+      try {
+        await for (final event in _streamChat(_endpoint, headers, body)) {
+          if (event['type'] != 'content_block_delta') continue;
+          final delta = event['delta'];
+          if (delta is! Map<String, dynamic>) continue;
+          if (delta['type'] != 'text_delta') continue;
+          final text = delta['text'];
+          if (text is String && text.isNotEmpty) yield text;
+        }
+        return;
+      } on AiProviderError catch (e) {
+        // Kun et retry: andre 400-feil (f.eks. ukjent modell) skal ikke
+        // gjentas eller maskeres.
+        if (withTemperature && e.statusCode == 400) continue;
+        rethrow;
+      }
     }
   }
 

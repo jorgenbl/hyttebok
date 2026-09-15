@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../core/utils/format.dart';
 import '../../domain/models/book.dart';
 import '../../domain/models/cabin.dart';
 import '../../domain/models/section.dart';
@@ -71,7 +72,7 @@ class BookPdfExporter {
         ),
       ),
       pw.Text(
-        'Hyttebok · sist endret ${_norskDato(book.updatedAt)}',
+        'Hyttebok · sist endret ${formatNorskDato(book.updatedAt)}',
         style: _meta,
       ),
       pw.SizedBox(height: 14),
@@ -165,7 +166,9 @@ class BookPdfExporter {
         blocks.add(
           pw.Text(
             story.title +
-                (story.date != null ? '  (${_norskDato(story.date!)})' : '') +
+                (story.date != null
+                    ? '  (${formatNorskDato(story.date!)})'
+                    : '') +
                 (story.author != null && story.author!.trim().isNotEmpty
                     ? '  –  ${story.author}'
                     : ''),
@@ -358,24 +361,5 @@ class BookPdfExporter {
         ),
       ],
     );
-  }
-
-  String _norskDato(DateTime d) {
-    const months = [
-      'januar',
-      'februar',
-      'mars',
-      'april',
-      'mai',
-      'juni',
-      'juli',
-      'august',
-      'september',
-      'oktober',
-      'november',
-      'desember',
-    ];
-    final day = d.day.toString().padLeft(2, '0');
-    return '$day. ${months[d.month - 1]} ${d.year}';
   }
 }

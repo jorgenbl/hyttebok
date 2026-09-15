@@ -65,7 +65,7 @@ class AiSettings {
       case AiProviderType.openai:
         return 'gpt-4o-mini';
       case AiProviderType.anthropic:
-        return 'claude-3-5-haiku-latest';
+        return 'claude-sonnet-5';
       case AiProviderType.ollama:
         return 'llama3.1';
       case AiProviderType.lmstudio:

@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
+import '../../../core/utils/swipe_delete.dart';
 import '../../../data/repositories/book_repository.dart';
 import '../../../domain/models/book_meta.dart';
 
@@ -12,7 +15,12 @@ class LibraryViewModel extends ChangeNotifier {
   List<BookMeta> _books = const [];
   bool _loading = false;
 
-  List<BookMeta> get books => _books;
+  /// Bøker som er sveipet bort, men ikke fysisk slettet ennå. Dataene er
+  /// intakte inntil tidsvinduet går ut uten at brukeren angret.
+  final Map<String, Timer> _pendingDeletes = {};
+
+  List<BookMeta> get books =>
+      _books.where((b) => !_pendingDeletes.containsKey(b.slug)).toList();
   bool get loading => _loading;
 
   Future<void> load() async {
@@ -20,6 +28,26 @@ class LibraryViewModel extends ChangeNotifier {
     notifyListeners();
     _books = await _repo.listBooks();
     _loading = false;
+    notifyListeners();
+  }
+
+  /// Sveip-sletting: boka forsvinner fra listen med det samme, men
+  /// slettes ikke fysisk før tidsvinduet er passert uten at
+  /// [cancelSwipeDelete] kalles.
+  void swipeDelete(String slug) {
+    _pendingDeletes[slug]?.cancel();
+    _pendingDeletes[slug] = Timer(swipeDeleteCommitDelay, () {
+      _pendingDeletes.remove(slug);
+      notifyListeners();
+      unawaited(deleteBook(slug));
+    });
+    notifyListeners();
+  }
+
+  /// Angrer en pågående sveip-sletting: boka dukker tilbake opp, og
+  /// ingenting er slettet.
+  void cancelSwipeDelete(String slug) {
+    _pendingDeletes.remove(slug)?.cancel();
     notifyListeners();
   }
 

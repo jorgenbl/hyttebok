@@ -5,6 +5,7 @@ import '../ui/features/book/book_view.dart';
 import '../ui/features/cabin/cabin_view.dart';
 import '../ui/features/editor/editor.dart';
 import '../ui/features/library/library_view.dart';
+import '../ui/features/reader/reader_view.dart';
 import '../ui/features/settings/settings_view.dart';
 
 /// Bygger appens ruter. Opprettes per app-instans (test-vennlig).
@@ -30,6 +31,18 @@ GoRouter buildRouter() {
       GoRoute(
         path: '/book/:slug/cabin/:cabinSlug',
         builder: (context, state) => CabinView(
+          bookSlug: state.pathParameters['slug']!,
+          cabinSlug: state.pathParameters['cabinSlug']!,
+        ),
+      ),
+      GoRoute(
+        path: '/book/:slug/read',
+        builder: (context, state) =>
+            BookReaderView(bookSlug: state.pathParameters['slug']!),
+      ),
+      GoRoute(
+        path: '/book/:slug/cabin/:cabinSlug/read',
+        builder: (context, state) => BookReaderView(
           bookSlug: state.pathParameters['slug']!,
           cabinSlug: state.pathParameters['cabinSlug']!,
         ),

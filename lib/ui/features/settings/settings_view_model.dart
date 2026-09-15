@@ -104,7 +104,12 @@ class SettingsViewModel extends ChangeNotifier {
       _testMessage = 'Tilkoblet – alt fungerer.';
     } on AiProviderError catch (e) {
       _testState = AiTestState.failure;
-      _testMessage = e.message;
+      final detail = e.cause is String ? (e.cause as String).trim() : '';
+      // Leverandørens egen melding (f.eks. «temperature er ikke støttet»)
+      // gjør feilen mulig å diagnosticere.
+      _testMessage = detail.isEmpty
+          ? e.message
+          : '${e.message}\nLeverandøren: $detail';
     } catch (e) {
       _testState = AiTestState.failure;
       _testMessage = 'Uventet feil: $e';

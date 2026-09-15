@@ -28,7 +28,7 @@ void main() {
       expect(AiSettings.defaultModelFor(AiProviderType.openai), 'gpt-4o-mini');
       expect(
         AiSettings.defaultModelFor(AiProviderType.anthropic),
-        'claude-3-5-haiku-latest',
+        'claude-sonnet-5',
       );
       expect(AiSettings.defaultModelFor(AiProviderType.ollama), 'llama3.1');
       expect(

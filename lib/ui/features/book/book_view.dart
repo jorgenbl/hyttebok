@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/errors.dart';
 import '../../../core/io/file_export.dart';
+import '../../../core/utils/swipe_delete.dart';
 import '../../../core/widgets/dialogs.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/skeleton.dart';
@@ -61,7 +62,9 @@ class _BookBody extends StatelessWidget {
     );
     if (name == null) return;
     final cabinSlug = await vm.createCabin(name);
-    if (context.mounted) context.go('/book/${vm.slug}/cabin/$cabinSlug');
+    // push (ikke go): boka skal ligge i historien slik at tilbake-knappen
+    // fungerer når hytta er åpen.
+    if (context.mounted) context.push('/book/${vm.slug}/cabin/$cabinSlug');
   }
 
   /// Oppretter en hytte fra mal (Fase 3): full struktur med ledetekst.
@@ -92,7 +95,9 @@ class _BookBody extends StatelessWidget {
       name: name,
       location: location,
     );
-    if (context.mounted) context.go('/book/${vm.slug}/cabin/$cabinSlug');
+    // push (ikke go): boka skal ligge i historien slik at tilbake-knappen
+    // fungerer når hytta er åpen.
+    if (context.mounted) context.push('/book/${vm.slug}/cabin/$cabinSlug');
   }
 
   Future<void> _deleteCabin(
@@ -106,6 +111,35 @@ class _BookBody extends StatelessWidget {
       message: 'Slette «${cabin.name}» og alt innholdet?',
     );
     if (ok) await vm.deleteCabin(cabin.slug);
+  }
+
+  /// Sveip-sletting: hytta forsvinner med det samme, men brukeren har
+  /// [swipeDeleteWindow] på seg til å angre – da er ingenting slettet ennå.
+  void _swipeDeleteCabin(BuildContext context, BookViewModel vm, Cabin cabin) {
+    final messenger = ScaffoldMessenger.of(context);
+    vm.swipeDeleteCabin(cabin.slug);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('«${cabin.name}» slettes om et øyeblikk.'),
+        duration: swipeDeleteWindow,
+        action: SnackBarAction(
+          label: 'Angre',
+          onPressed: () => vm.cancelSwipeDeleteCabin(cabin.slug),
+        ),
+      ),
+    );
+  }
+
+  /// Rød bakgrunn med slette-ikon bak kortet under sveiping.
+  Widget _swipeBackground(BuildContext context, EdgeInsets margin) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: margin,
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 24),
+      color: scheme.error,
+      child: const Icon(Icons.delete_outline, color: Colors.white),
+    );
   }
 
   /// Eksporterer boka (én `.md`-fil eller `.zip`). [zip] velger format.
@@ -206,6 +240,11 @@ class _BookBody extends StatelessWidget {
         title: Text(book.title),
         actions: [
           IconButton(
+            icon: const Icon(Icons.menu_book),
+            tooltip: 'Les boka',
+            onPressed: () => context.push('/book/${vm.slug}/read'),
+          ),
+          IconButton(
             icon: const Icon(Icons.search),
             tooltip: 'Søk i boka',
             onPressed: () => context.push('/book/${vm.slug}/search'),
@@ -253,25 +292,31 @@ class _BookBody extends StatelessWidget {
               ),
             ),
           ),
-          if (book.cabins.isEmpty)
+          if (vm.activeCabins.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: Text('Ingen hytter i denne boka ennå.'),
             )
           else
-            for (final cabin in book.cabins)
-              Card(
-                margin: _margin,
-                child: ListTile(
-                  onTap: () =>
-                      context.push('/book/${vm.slug}/cabin/${cabin.slug}'),
-                  onLongPress: () => _deleteCabin(context, vm, cabin),
-                  leading: const Icon(Icons.home),
-                  title: Text(cabin.name),
-                  subtitle: cabin.location != null
-                      ? Text(cabin.location!)
-                      : null,
-                  trailing: const Icon(Icons.chevron_right),
+            for (final cabin in vm.activeCabins)
+              Dismissible(
+                key: ValueKey('hytte-${cabin.slug}'),
+                direction: DismissDirection.endToStart,
+                background: _swipeBackground(context, _margin),
+                onDismissed: (_) => _swipeDeleteCabin(context, vm, cabin),
+                child: Card(
+                  margin: _margin,
+                  child: ListTile(
+                    onTap: () =>
+                        context.push('/book/${vm.slug}/cabin/${cabin.slug}'),
+                    onLongPress: () => _deleteCabin(context, vm, cabin),
+                    leading: const Icon(Icons.home),
+                    title: Text(cabin.name),
+                    subtitle: cabin.location != null
+                        ? Text(cabin.location!)
+                        : null,
+                    trailing: const Icon(Icons.chevron_right),
+                  ),
                 ),
               ),
         ],

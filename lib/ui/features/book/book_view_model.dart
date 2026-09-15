@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../core/utils/slug.dart';
+import '../../../core/utils/swipe_delete.dart';
 import '../../../data/repositories/book_repository.dart';
 import '../../../domain/models/book.dart';
 import '../../../domain/models/cabin.dart';
@@ -18,8 +21,19 @@ class BookViewModel extends ChangeNotifier {
   Book? _book;
   bool _loading = false;
 
+  /// Hytter som er sveipet bort, men ikke fysisk slettet ennå. Dataene er
+  /// intakte inntil tidsvinduet går ut uten at brukeren angret.
+  final Map<String, Timer> _pendingCabinDeletes = {};
+
   Book? get book => _book;
   bool get loading => _loading;
+
+  /// Hyttene som fortsatt vises (ikke sveipet bort).
+  List<Cabin> get activeCabins =>
+      _book?.cabins
+          .where((c) => !_pendingCabinDeletes.containsKey(c.slug))
+          .toList() ??
+      const [];
 
   Future<void> load() async {
     _loading = true;
@@ -99,6 +113,26 @@ class BookViewModel extends ChangeNotifier {
     await _save(
       b.copyWith(cabins: b.cabins.where((c) => c.slug != cabinSlug).toList()),
     );
+  }
+
+  /// Sveip-sletting: hytta forsvinner fra listen med det samme, men
+  /// slettes ikke fysisk før tidsvinduet er passert uten at
+  /// [cancelSwipeDeleteCabin] kalles.
+  void swipeDeleteCabin(String cabinSlug) {
+    _pendingCabinDeletes[cabinSlug]?.cancel();
+    _pendingCabinDeletes[cabinSlug] = Timer(swipeDeleteCommitDelay, () {
+      _pendingCabinDeletes.remove(cabinSlug);
+      notifyListeners();
+      if (_book != null) unawaited(deleteCabin(cabinSlug));
+    });
+    notifyListeners();
+  }
+
+  /// Angrer en pågående sveip-sletting: hytta dukker tilbake opp, og
+  /// ingenting er slettet.
+  void cancelSwipeDeleteCabin(String cabinSlug) {
+    _pendingCabinDeletes.remove(cabinSlug)?.cancel();
+    notifyListeners();
   }
 
   Future<void> updateIntro(String markdown) async {

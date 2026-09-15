@@ -9,26 +9,46 @@ import 'package:hyttebok/data/services/ai_client.dart';
 import 'package:hyttebok/data/services/ai_settings.dart';
 
 /// Fake http-klient som returnerer en ferdig [http.StreamedResponse] (SSE)
-/// eller kaster en feil, og logger requesten for inspeksjon.
+/// eller kaster en feil, og logger requestene for inspeksjon.
+///
+/// [sequence] gir mulighet for flere påfølgende svar (f.eks. 400 etterfulgt
+/// av 200) for å teste retry-logikk; utover sekvensen brukes [status]/
+/// [chunks].
 class _FakeHttpClient extends http.BaseClient {
-  _FakeHttpClient(this.chunks, {this.status = 200, this.exception});
+  _FakeHttpClient(
+    this.chunks, {
+    this.status = 200,
+    this.exception,
+    this.sequence = const [],
+  });
 
   final List<List<int>> chunks;
   final int status;
   final Object? exception;
+  final List<(int, List<List<int>>)> sequence;
 
-  http.Request? lastRequest;
+  final List<http.Request> requests = [];
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final req = request as http.Request;
-    lastRequest = req;
+    requests.add(req);
     if (exception != null) throw exception!;
+    final index = requests.length - 1;
+    if (index < sequence.length) {
+      final (code, bodyChunks) = sequence[index];
+      return http.StreamedResponse(
+        Stream<List<int>>.fromIterable(bodyChunks),
+        code,
+      );
+    }
     return http.StreamedResponse(
       Stream<List<int>>.fromIterable(chunks),
       status,
     );
   }
+
+  http.Request? get lastRequest => requests.isEmpty ? null : requests.last;
 
   Map<String, String> get lastHeaders =>
       Map<String, String>.from(lastRequest!.headers);
@@ -307,6 +327,26 @@ void main() {
         final error = await firstError(fake) as AiProviderError;
         expect(error.message, 'Uventet svar fra leverandøren (kode 418).');
       });
+
+      test('400 → error.message fra leverandøren havner i cause', () async {
+        final body = jsonEncode({
+          'error': {
+            'message': 'The model `gpt-9` does not exist',
+            'type': 'invalid_request_error',
+          },
+        });
+        final fake = _FakeHttpClient(utf8Chunks([body]), status: 400);
+        final error = await firstError(fake) as AiProviderError;
+        expect(error.statusCode, 400);
+        expect(error.cause, 'The model `gpt-9` does not exist');
+      });
+
+      test('ikkje-JSON-feilkropp → klippet råtekst som cause', () async {
+        final longBody = 'x' * 500;
+        final fake = _FakeHttpClient(utf8Chunks([longBody]), status: 418);
+        final error = await firstError(fake) as AiProviderError;
+        expect(error.cause, 'x' * 300);
+      });
     });
 
     test('SocketException → kan ikke nå leverandøren', () async {
@@ -361,37 +401,28 @@ void main() {
   });
 
   group('AnthropicClient', () {
+    AnthropicClient clientFor(http.Client fake) => AnthropicClient(
+      baseUrl: 'https://api.anthropic.com/v1',
+      apiKey: 'sk-ant',
+      settings: AiSettings(
+        type: AiProviderType.anthropic,
+        baseUrl: 'https://api.anthropic.com/v1',
+        model: 'claude-sonnet-5',
+      ),
+      client: fake,
+    );
+
     test('streamer text_delta-hendelser og ignorerer andre typer', () async {
       final fake = _FakeHttpClient(anthropicChunks(['Hei', ' ', 'Claude']));
-      final client = AnthropicClient(
-        baseUrl: 'https://api.anthropic.com/v1',
-        apiKey: 'sk-ant',
-        settings: AiSettings(
-          type: AiProviderType.anthropic,
-          baseUrl: 'https://api.anthropic.com/v1',
-          model: 'claude-3-5-haiku-latest',
-        ),
-        client: fake,
-      );
       await expectLater(
-        client.complete(system: 'sys', user: 'usr'),
+        clientFor(fake).complete(system: 'sys', user: 'usr'),
         emitsInOrder(['Hei', ' ', 'Claude']),
       );
     });
 
     test('sender x-api-key + anthropic-version til /messages', () async {
       final fake = _FakeHttpClient(anthropicChunks(['ok']));
-      final client = AnthropicClient(
-        baseUrl: 'https://api.anthropic.com/v1',
-        apiKey: 'sk-ant',
-        settings: AiSettings(
-          type: AiProviderType.anthropic,
-          baseUrl: 'https://api.anthropic.com/v1',
-          model: 'claude-3-5-haiku-latest',
-        ),
-        client: fake,
-      );
-      await client.complete(system: 'sys', user: 'usr').drain();
+      await clientFor(fake).complete(system: 'sys', user: 'usr').drain();
       expect(
         fake.lastRequest!.url,
         Uri.parse('https://api.anthropic.com/v1/messages'),
@@ -399,10 +430,80 @@ void main() {
       expect(fake.lastHeaders['x-api-key'], 'sk-ant');
       expect(fake.lastHeaders['anthropic-version'], '2023-06-01');
       final body = fake.lastBody;
+      expect(body['model'], 'claude-sonnet-5');
+      expect(body['temperature'], 0.7);
       expect(body['system'], 'sys');
       expect(body['messages'], [
         {'role': 'user', 'content': 'usr'},
       ]);
+    });
+
+    test(
+      '400 pga temperature → retryer uten temperature og streamer svaret',
+      () async {
+        final fake = _FakeHttpClient(
+          anthropicChunks(['Hei']),
+          sequence: [
+            (
+              400,
+              utf8Chunks([
+                jsonEncode({
+                  'type': 'error',
+                  'error': {
+                    'type': 'invalid_request_error',
+                    'message':
+                        'Models released after Claude Opus 4.6 do not '
+                        'support setting temperature.',
+                  },
+                }),
+              ]),
+            ),
+          ],
+        );
+        await expectLater(
+          clientFor(fake).complete(system: 'sys', user: 'usr'),
+          emitsInOrder(['Hei']),
+        );
+        expect(fake.requests, hasLength(2));
+        final firstBody =
+            jsonDecode(fake.requests[0].body) as Map<String, dynamic>;
+        final secondBody =
+            jsonDecode(fake.requests[1].body) as Map<String, dynamic>;
+        expect(firstBody['temperature'], 0.7);
+        expect(secondBody.containsKey('temperature'), isFalse);
+        expect(secondBody['model'], 'claude-sonnet-5');
+      },
+    );
+
+    test('400 uten temperature-retry (f.eks. ukjent modell) kastes videre, '
+        'error.message i cause', () async {
+      final body = jsonEncode({
+        'type': 'error',
+        'error': {
+          'type': 'invalid_request_error',
+          'message': 'model: claude-9 is not a valid model ID',
+        },
+      });
+      final fake = _FakeHttpClient(utf8Chunks([body]), status: 400);
+      final error = await firstStreamError(clientFor(fake)) as AiProviderError;
+      expect(error.message, 'Uventet svar fra leverandøren (kode 400).');
+      expect(error.statusCode, 400);
+      expect(error.cause, 'model: claude-9 is not a valid model ID');
+      // Én retry uten temperature, deretter kastes feilen.
+      expect(fake.requests, hasLength(2));
+      final secondBody =
+          jsonDecode(fake.requests[1].body) as Map<String, dynamic>;
+      expect(secondBody.containsKey('temperature'), isFalse);
+    });
+
+    test('ping lykkes etter 400 pga temperature', () async {
+      final fake = _FakeHttpClient(
+        anthropicChunks(['ok']),
+        sequence: [
+          (400, utf8Chunks(['{"type":"error"}'])),
+        ],
+      );
+      expect(await clientFor(fake).ping(), isTrue);
     });
   });
 
@@ -414,7 +515,7 @@ void main() {
         AiSettings(
           type: AiProviderType.anthropic,
           baseUrl: 'https://api.anthropic.com/v1/',
-          model: 'claude-3-5-haiku-latest',
+          model: 'claude-sonnet-5',
         ),
         httpClient: empty(),
       );
