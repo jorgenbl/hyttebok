@@ -111,6 +111,8 @@ void main() {
       final appDir = Directory('${tempDir.path}/app')
         ..createSync(recursive: true);
       final settingsRepo = SettingsRepository(FileTextKeyValueStore(appDir));
+      // Hopp over velkomst-opplæringen i testen.
+      await tester.runAsync(settingsRepo.markOnboardingSeen);
       final keyStore = _MemoryKeyStore();
       final fakeClient = _FakeAiClient(true);
 
@@ -218,6 +220,8 @@ void main() {
         ),
       ),
     );
+    // Hopp over velkomst-opplæringen i testen.
+    await tester.runAsync(settingsRepo.markOnboardingSeen);
     final keyStore = _MemoryKeyStore();
     final fakeClient = _FakeAiClient(
       AiProviderError(
@@ -274,6 +278,8 @@ void main() {
           ),
         ),
       );
+      // Hopp over velkomst-opplæringen i testen.
+      await tester.runAsync(settingsRepo.markOnboardingSeen);
       final keyStore = _MemoryKeyStore();
       final fakeClient = _FakeAiClient(
         AiProviderError(

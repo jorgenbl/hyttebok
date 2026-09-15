@@ -189,6 +189,11 @@ class _LibraryBody extends StatelessWidget {
             tooltip: 'Innstillinger',
             onPressed: () => context.push('/settings'),
           ),
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            tooltip: 'Hjelp',
+            onPressed: () => context.push('/help'),
+          ),
           _themeMenu(context),
           IconButton(
             icon: const Icon(Icons.file_upload_outlined),

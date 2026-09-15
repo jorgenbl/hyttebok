@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/utils/format.dart';
 import '../../../core/widgets/book_image.dart';
+import '../../../core/widgets/cabin_illustration.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/markdown_preview.dart';
 import '../../../core/widgets/skeleton.dart';
@@ -119,6 +120,23 @@ class _ReaderBody extends StatelessWidget {
         padding: const EdgeInsets.only(top: 8, bottom: 40),
         children: [
           if (!isSingleCabin) ...[
+            // Omslag: valgfritt omslagsbilde, ellers tegnet hyttemotiv.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: book.coverImage != null
+                    ? SizedBox(
+                        height: 180,
+                        child: BookImage(
+                          repo: repo,
+                          bookSlug: bookSlug,
+                          src: book.coverImage!,
+                        ),
+                      )
+                    : const CabinIllustration(height: 180),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(_hPad, 8, _hPad, 0),
               child: Text(
@@ -179,7 +197,17 @@ class _ReaderBody extends StatelessWidget {
       blocks.add(markdown(cabin.description));
     }
 
+    // Tynn linje mellom seksjonene og historiene (ikke før den første
+    // seksjonen – det er allerede en linje etter hyttens beskrivelse).
+    Widget divider() => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Divider(height: 1, color: scheme.outlineVariant),
+    );
+
+    var firstSection = true;
     for (final section in _exportSections(cabin)) {
+      if (!firstSection) blocks.add(divider());
+      firstSection = false;
       blocks.add(
         heading(
           section.title.trim().isEmpty ? 'Seksjon' : section.title.trim(),
@@ -202,11 +230,15 @@ class _ReaderBody extends StatelessWidget {
     }
 
     if (cabin.stories.isNotEmpty) {
+      if (!firstSection || cabin.description.trim().isNotEmpty) {
+        blocks.add(divider());
+      }
       blocks.add(heading('Historier'));
-      for (final story in cabin.stories) {
+      for (var i = 0; i < cabin.stories.length; i++) {
+        if (i > 0) blocks.add(divider());
         blocks.add(
           _storyBlock(
-            story,
+            cabin.stories[i],
             repo: repo,
             bookSlug: bookSlug,
             markdown: markdown,

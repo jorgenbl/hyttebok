@@ -9,6 +9,7 @@ import '../data/services/image_picker_service.dart';
 import '../data/services/secure_key_store.dart';
 import '../data/services/share_service.dart';
 import '../domain/templates/cabin_template.dart';
+import '../ui/features/onboarding/onboarding.dart';
 import 'router.dart';
 import 'theme.dart';
 import 'theme_preference.dart';
@@ -75,14 +76,18 @@ class HyttebokApp extends StatelessWidget {
               ((s, k) => AiClientFactory.create(s, apiKey: k)),
         ),
       ],
-      child: const _HyttebokMaterialApp(),
+      child: _HyttebokMaterialApp(settings: settings),
     );
   }
 }
 
 /// `MaterialApp` som følger [ThemePreference] (system/lys/mørk).
 class _HyttebokMaterialApp extends StatelessWidget {
-  const _HyttebokMaterialApp();
+  const _HyttebokMaterialApp({this.settings});
+
+  /// Trengs for velkomst-opplæringens flagg; uten (f.eks. i enkle tester)
+  /// vises ingen opplæring.
+  final SettingsRepository? settings;
 
   @override
   Widget build(BuildContext context) {
@@ -94,6 +99,42 @@ class _HyttebokMaterialApp extends StatelessWidget {
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
       routerConfig: buildRouter(),
+      builder: (context, child) =>
+          _OnboardingGate(settings: settings, child: child!),
     );
+  }
+}
+
+/// Viser [OnboardingView] første gang appen kjøres; etterpå bygges appen
+/// direkte. Flagget ligger i innstillingslagringen ([SettingsRepository]);
+/// uten den (f.eks. i enkle tester) hoppes opplæringen over.
+class _OnboardingGate extends StatefulWidget {
+  const _OnboardingGate({this.settings, required this.child});
+
+  final SettingsRepository? settings;
+  final Widget child;
+
+  @override
+  State<_OnboardingGate> createState() => _OnboardingGateState();
+}
+
+class _OnboardingGateState extends State<_OnboardingGate> {
+  late bool _showOnboarding;
+
+  @override
+  void initState() {
+    super.initState();
+    _showOnboarding = widget.settings?.hasSeenOnboarding() == false;
+  }
+
+  Future<void> _finish() async {
+    await widget.settings?.markOnboardingSeen();
+    if (mounted) setState(() => _showOnboarding = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_showOnboarding) return widget.child;
+    return OnboardingView(onFinish: _finish);
   }
 }

@@ -4,6 +4,7 @@ import '../ui/features/book/book_search_view.dart';
 import '../ui/features/book/book_view.dart';
 import '../ui/features/cabin/cabin_view.dart';
 import '../ui/features/editor/editor.dart';
+import '../ui/features/help/help_view.dart';
 import '../ui/features/library/library_view.dart';
 import '../ui/features/reader/reader_view.dart';
 import '../ui/features/settings/settings_view.dart';
@@ -18,6 +19,7 @@ GoRouter buildRouter() {
         path: '/settings',
         builder: (context, state) => const SettingsView(),
       ),
+      GoRoute(path: '/help', builder: (context, state) => const HelpView()),
       GoRoute(
         path: '/book/:slug',
         builder: (context, state) =>

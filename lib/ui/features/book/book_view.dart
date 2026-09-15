@@ -1,17 +1,22 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart' show ImageSource, XFile;
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/errors.dart';
 import '../../../core/io/file_export.dart';
 import '../../../core/utils/swipe_delete.dart';
+import '../../../core/widgets/book_image.dart';
+import '../../../core/widgets/cabin_illustration.dart';
 import '../../../core/widgets/dialogs.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../data/repositories/book_repository.dart';
+import '../../../data/services/image_picker_service.dart';
 import '../../../data/services/share_service.dart';
+import '../../../domain/models/book.dart';
 import '../../../domain/models/cabin.dart';
 import '../../../domain/templates/cabin_template.dart';
 import '../../../ui/features/editor/editor.dart';
@@ -140,6 +145,122 @@ class _BookBody extends StatelessWidget {
       color: scheme.error,
       child: const Icon(Icons.delete_outline, color: Colors.white),
     );
+  }
+
+  /// Bokens «omslag»: valgfritt omslagsbilde, ellers tegnet hyttemotiv.
+  /// Ikkonen øverst til høyre bytter/fjerner omslag.
+  Widget _cover(BuildContext context, BookViewModel vm, Book book) {
+    final repo = context.read<BookRepository>();
+    final src = book.coverImage;
+    return Card(
+      margin: _margin,
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        height: 180,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (src != null)
+              BookImage(repo: repo, bookSlug: vm.slug, src: src)
+            else
+              const CabinIllustration(),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton(
+                tooltip: 'Omslag',
+                icon: const Icon(Icons.photo_outlined),
+                color: Theme.of(context).colorScheme.onSurface,
+                onPressed: () => _coverMenu(context, vm, book),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _coverMenu(
+    BuildContext context,
+    BookViewModel vm,
+    Book book,
+  ) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Endre omslag'),
+              onTap: () => Navigator.pop(sheetContext, 'endre'),
+            ),
+            if (book.coverImage != null)
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Fjern omslag'),
+                onTap: () => Navigator.pop(sheetContext, 'fjern'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !context.mounted) return;
+    if (action == 'fjern') {
+      await vm.removeCoverImage();
+      return;
+    }
+    await _changeCover(context, vm);
+  }
+
+  /// Plukker et bilde (kamera/galleri), lagrer det i boken og gjør det til
+  /// omslaget.
+  Future<void> _changeCover(BuildContext context, BookViewModel vm) async {
+    final repo = context.read<BookRepository>();
+    final service = context.read<ImagePickerService>();
+    final messenger = ScaffoldMessenger.of(context);
+    ImageSource? source;
+    if (!kIsWeb) {
+      source = await showModalBottomSheet<ImageSource>(
+        context: context,
+        builder: (sheetContext) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('Ta bilde'),
+                onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Fra galleri'),
+                onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      source = ImageSource.gallery;
+    }
+    if (source == null || !context.mounted) return;
+    final XFile? file = source == ImageSource.camera
+        ? await service.takePhoto()
+        : await service.pickFromGallery();
+    if (file == null || !context.mounted) return;
+    try {
+      final relative = await repo.importImage(vm.slug, file);
+      if (!context.mounted) return;
+      await vm.setCoverImage(relative);
+    } catch (_) {
+      if (context.mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Kunne ikke lagre omslaget.')),
+        );
+      }
+    }
   }
 
   /// Eksporterer boka (én `.md`-fil eller `.zip`). [zip] velger format.
@@ -272,6 +393,7 @@ class _BookBody extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 96),
         children: [
+          _cover(context, vm, book),
           Card(
             margin: _margin,
             child: ListTile(

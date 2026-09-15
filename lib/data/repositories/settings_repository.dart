@@ -37,4 +37,31 @@ class SettingsRepository {
     final json = {'ai': settings.toJson()};
     await _store.save(const JsonEncoder.withIndent('  ').convert(json));
   }
+
+  /// Om velkomst-opplæringen allerede er vist. `false` om ingenting er
+  /// lagret eller filen er korrupt.
+  bool hasSeenOnboarding() {
+    final decoded = _readAll();
+    return decoded?['onboardingShown'] == true;
+  }
+
+  /// Markerer velkomst-opplæringen som vist (beholder øvrige innstillinger).
+  Future<void> markOnboardingSeen() async {
+    final all = _readAll() ?? <String, Object?>{};
+    all['onboardingShown'] = true;
+    await _store.save(const JsonEncoder.withIndent('  ').convert(all));
+  }
+
+  /// Leser hele innstillingsdokumentet, eller `null` om tom/korrupt.
+  Map<String, Object?>? _readAll() {
+    final raw = _store.load();
+    if (raw == null) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, Object?>) return decoded;
+    } catch (_) {
+      // Korrupt fil behandles som «ikke lagret».
+    }
+    return null;
+  }
 }

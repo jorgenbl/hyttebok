@@ -7,11 +7,19 @@ import 'book_image.dart';
 
 /// Delte Markdown-stiler, brukt av både redigerings-forhåndsvisning og
 /// lesevisningen, slik at innholdet ser likt ut overalt.
+///
+/// Overskriftene får luft over og under (h*Padding) slik at avsnittene
+/// skiller seg visuelt fra innholdet. I kilden kan man i tillegg skrive
+/// `---` for en horisontal linje.
 MarkdownStyleSheet markdownStyleSheet(ThemeData theme) => MarkdownStyleSheet(
   h1: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+  h1Padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
   h2: theme.textTheme.titleLarge,
+  h2Padding: const EdgeInsets.fromLTRB(0, 14, 0, 6),
   h3: theme.textTheme.titleMedium,
+  h3Padding: const EdgeInsets.fromLTRB(0, 10, 0, 4),
   h4: theme.textTheme.titleSmall,
+  h4Padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
   code: const TextStyle(fontFamily: 'monospace', fontSize: 13),
 );
 

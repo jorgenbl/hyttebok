@@ -50,15 +50,65 @@ class EditorView extends StatefulWidget {
   State<EditorView> createState() => _EditorViewState();
 }
 
+/// Liste-markører editoren kjennes og hjelper brukeren med:
+/// avkrysningsliste (`- [ ] `), punktoppstrek (`- `) og nummerert (`1. `).
+final RegExp _checklistMarker = RegExp(r'^- \[[ xX]\] ?');
+final RegExp _bulletMarker = RegExp(r'^[-*] ?');
+final RegExp _numberedMarker = RegExp(r'^(\d+)\. ?');
+
+/// Liste-typer som verktøylinjen kan sette/ta av.
+enum _ListKind { checklist, bullet, numbered }
+
+/// Markøren for [line], dersom linjen er en liste-post (ellers `null`).
+String? _listMarkerFor(String line) {
+  if (_checklistMarker.hasMatch(line)) return '- [ ] ';
+  if (_bulletMarker.hasMatch(line)) return '- ';
+  if (_numberedMarker.hasMatch(line)) return '1. ';
+  return null;
+}
+
+/// Markøren som en ny liste-post skal få etter [line]: samme type, og
+/// nummerert lister øker med én.
+String _continuationMarker(String line) {
+  final numbered = _numberedMarker.firstMatch(line);
+  if (numbered != null) return '${int.parse(numbered.group(1)!) + 1}. ';
+  if (_checklistMarker.hasMatch(line)) return '- [ ] ';
+  return '- ';
+}
+
+/// Fjerner en liste-markør fra start av [line] (endres ikke hvis ingen).
+String _stripListMarker(String line) {
+  for (final re in [_checklistMarker, _bulletMarker, _numberedMarker]) {
+    final m = re.firstMatch(line);
+    if (m != null) return line.substring(m.end);
+  }
+  return line;
+}
+
+/// Er hele [s] akkurat en liste-markør (eventuelt med mellomrom)?
+bool _isFullMarker(String s) =>
+    _checklistFull.hasMatch(s) ||
+    _bulletFull.hasMatch(s) ||
+    _numberedFull.hasMatch(s);
+
+final RegExp _checklistFull = RegExp(r'^- \[[ xX]\] ?$');
+final RegExp _bulletFull = RegExp(r'^[-*] ?$');
+final RegExp _numberedFull = RegExp(r'^\d+\. ?$');
+
 class _EditorViewState extends State<EditorView>
     with SingleTickerProviderStateMixin {
   late final TextEditingController _controller;
   late final TabController _tabs;
 
+  /// Forrige tekstverdi; brukt av de smarte listene til å se hva brukeren
+  /// nettopp gjorde (Enter/Backspace) uten å avhenge av tastehendelser.
+  late TextEditingValue _prevValue;
+
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.input.initialValue);
+    _prevValue = _controller.value;
     _tabs = TabController(length: 2, vsync: this);
   }
 
@@ -67,6 +117,89 @@ class _EditorViewState extends State<EditorView>
     _controller.dispose();
     _tabs.dispose();
     super.dispose();
+  }
+
+  /// Smarte lister: Enter fortsetter en liste-post (ny markør, nummer øker),
+  /// Enter på en tom post forlater listen, og Backspace i selve markøren
+  /// fjerner hele markøren med ett. Tekstbasert (ikke tastehendelser), slik
+  /// at det fungerer likt på iOS, Android og web.
+  void _onTextChanged(TextEditingValue value) {
+    final prev = _prevValue;
+    _prevValue = value;
+    final fixed = _smartListFix(prev, value);
+    if (fixed != null) _controller.value = fixed;
+  }
+
+  TextEditingValue? _smartListFix(
+    TextEditingValue prev,
+    TextEditingValue next,
+  ) {
+    final old = prev.text;
+    final text = next.text;
+
+    // Enter: nøyaktig ett '\n' er satt inn ved posisjon [c], og cursor
+    // står rett etter det.
+    if (text.length == old.length + 1) {
+      var c = 0;
+      while (c < old.length && text[c] == old[c]) {
+        c++;
+      }
+      final atCursor =
+          next.selection.isCollapsed && next.selection.baseOffset == c + 1;
+      if (c <= old.length &&
+          text[c] == '\n' &&
+          text.substring(c + 1) == old.substring(c) &&
+          atCursor) {
+        final lineStart = c == 0 ? 0 : text.lastIndexOf('\n', c - 1) + 1;
+        final line = text.substring(lineStart, c);
+        if (_listMarkerFor(line) != null || _numberedMarker.hasMatch(line)) {
+          // Tom liste-post: går ut av listen.
+          if (_isFullMarker(line)) {
+            return TextEditingValue(
+              text: text.substring(0, lineStart) + text.substring(c + 1),
+              selection: TextSelection.collapsed(offset: lineStart),
+            );
+          }
+          final marker = _continuationMarker(line);
+          final t = text.substring(0, c + 1) + marker + text.substring(c + 1);
+          return TextEditingValue(
+            text: t,
+            selection: TextSelection.collapsed(offset: c + 1 + marker.length),
+          );
+        }
+      }
+    }
+
+    // Backspace: nøyaktig ett tegn er fjernet (ved [c] i gammel tekst).
+    if (text.length == old.length - 1) {
+      var c = 0;
+      while (c < text.length && text[c] == old[c]) {
+        c++;
+      }
+      final atCursor =
+          next.selection.isCollapsed && next.selection.baseOffset == c;
+      if (c < old.length &&
+          text.substring(c) == old.substring(c + 1) &&
+          atCursor) {
+        final removed = old[c];
+        if (removed != '\n' && c > 0) {
+          final lineStart = text.lastIndexOf('\n', c - 1) + 1;
+          // Bare «ute av listen» når cursor stod i enden av linjen.
+          final lineEnd = text.indexOf('\n', c);
+          final rest = lineEnd == -1 ? '' : text.substring(c, lineEnd);
+          if (rest.isEmpty) {
+            final line = text.substring(lineStart, c);
+            if (_isFullMarker(line + removed)) {
+              return TextEditingValue(
+                text: text.substring(0, lineStart) + text.substring(c),
+                selection: TextSelection.collapsed(offset: lineStart),
+              );
+            }
+          }
+        }
+      }
+    }
+    return null;
   }
 
   /// Plukker et bilde fra [source], lagrer det i boken og setter inn en
@@ -105,6 +238,103 @@ class _EditorViewState extends State<EditorView>
     controller.value = TextEditingValue(
       text: before + text + after,
       selection: TextSelection.collapsed(offset: before.length + text.length),
+    );
+  }
+
+  bool _hasKindMarker(String line, _ListKind kind) {
+    switch (kind) {
+      case _ListKind.checklist:
+        return _checklistMarker.hasMatch(line);
+      case _ListKind.bullet:
+        return _bulletMarker.hasMatch(line);
+      case _ListKind.numbered:
+        return _numberedMarker.hasMatch(line);
+    }
+  }
+
+  /// Setter av (eller på) [kind]-liste-markør på markerte linjer (eller
+  /// linjen cursor står på). Marker man hele listen og trykker samme knapp
+  /// igjen, fjernes markørene. Nummererte lister nummereres på nytt 1, 2, …
+  void _applyList(_ListKind kind) {
+    final value = _controller.value;
+    final text = value.text;
+    final sel = value.selection;
+    final collapsed = sel.isValid && sel.isCollapsed;
+    final start = (sel.isValid && sel.start >= 0) ? sel.start : 0;
+    final end = (sel.isValid && sel.end >= 0) ? sel.end : text.length;
+
+    final lineStart = start == 0 ? 0 : text.lastIndexOf('\n', start - 1) + 1;
+    var lineEnd = end;
+    if (lineEnd < text.length && text[lineEnd] != '\n') {
+      final nl = text.indexOf('\n', lineEnd);
+      lineEnd = nl == -1 ? text.length : nl;
+    }
+
+    final lines = <String>[];
+    var i = lineStart;
+    while (i < lineEnd) {
+      final nl = text.indexOf('\n', i);
+      final e = nl == -1 ? text.length : nl;
+      lines.add(text.substring(i, e));
+      i = e + 1;
+    }
+
+    if (lines.isEmpty) {
+      // Tom tekst (eller cursor på linjegrense): start listen her.
+      final marker = switch (kind) {
+        _ListKind.checklist => '- [ ] ',
+        _ListKind.bullet => '- ',
+        _ListKind.numbered => '1. ',
+      };
+      _controller.value = TextEditingValue(
+        text: text.substring(0, lineStart) + marker + text.substring(lineStart),
+        selection: TextSelection.collapsed(offset: lineStart + marker.length),
+      );
+      return;
+    }
+
+    final nonEmpty = lines.where((l) => l.trim().isNotEmpty).toList();
+    final allMarked =
+        nonEmpty.isNotEmpty && nonEmpty.every((l) => _hasKindMarker(l, kind));
+
+    final out = StringBuffer(text.substring(0, lineStart));
+    var counter = 0;
+    for (var li = 0; li < lines.length; li++) {
+      var line = lines[li];
+      if (line.trim().isNotEmpty) {
+        counter++;
+        final body = _stripListMarker(line);
+        if (allMarked) {
+          line = body;
+        } else {
+          line = switch (kind) {
+            _ListKind.checklist => '- [ ] $body',
+            _ListKind.bullet => '- $body',
+            _ListKind.numbered => '$counter. $body',
+          };
+        }
+      } else if (collapsed && lines.length == 1) {
+        // Tom linje: start en ny liste (ellers skulle tomme linjer i et
+        // utvalg ikke markeres).
+        counter = 1;
+        line = switch (kind) {
+          _ListKind.checklist => '- [ ] ',
+          _ListKind.bullet => '- ',
+          _ListKind.numbered => '1. ',
+        };
+      }
+      out.write(line);
+      if (li < lines.length - 1) out.write('\n');
+    }
+    out.write(text.substring(lineEnd));
+
+    final newEnd =
+        lineStart + (out.length - lineStart) - (text.length - lineEnd);
+    _controller.value = TextEditingValue(
+      text: out.toString(),
+      selection: collapsed
+          ? TextSelection.collapsed(offset: newEnd)
+          : TextSelection(baseOffset: lineStart, extentOffset: newEnd),
     );
   }
 
@@ -249,41 +479,57 @@ class _EditorViewState extends State<EditorView>
         children: [
           Column(
             children: [
-              if (bookSlug != null)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 4, top: 4, bottom: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Web har ingen kamera-plugin; filplukkeren dekkes
-                        // av «Fra galleri».
-                        if (!kIsWeb)
-                          IconButton(
-                            tooltip: 'Ta bilde',
-                            icon: const Icon(Icons.photo_camera_outlined),
-                            onPressed: () =>
-                                _addImage(context, ImageSource.camera),
-                          ),
-                        IconButton(
-                          tooltip: 'Fra galleri',
-                          icon: const Icon(Icons.photo_library_outlined),
-                          onPressed: () =>
-                              _addImage(context, ImageSource.gallery),
-                        ),
-                      ],
+              // Verktøylinje: liste-knapper alltid; bilde-knapper når
+              // editoren hører til en bok.
+              Padding(
+                padding: const EdgeInsets.only(right: 4, top: 4, bottom: 4),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Avkrysningsliste',
+                      icon: const Icon(Icons.checklist),
+                      onPressed: () => _applyList(_ListKind.checklist),
                     ),
-                  ),
+                    IconButton(
+                      tooltip: 'Punktliste',
+                      icon: const Icon(Icons.format_list_bulleted),
+                      onPressed: () => _applyList(_ListKind.bullet),
+                    ),
+                    IconButton(
+                      tooltip: 'Nummerert liste',
+                      icon: const Icon(Icons.format_list_numbered),
+                      onPressed: () => _applyList(_ListKind.numbered),
+                    ),
+                    const Spacer(),
+                    if (bookSlug != null) ...[
+                      // Web har ingen kamera-plugin; filplukkeren dekkes
+                      // av «Fra galleri».
+                      if (!kIsWeb)
+                        IconButton(
+                          tooltip: 'Ta bilde',
+                          icon: const Icon(Icons.photo_camera_outlined),
+                          onPressed: () =>
+                              _addImage(context, ImageSource.camera),
+                        ),
+                      IconButton(
+                        tooltip: 'Fra galleri',
+                        icon: const Icon(Icons.photo_library_outlined),
+                        onPressed: () =>
+                            _addImage(context, ImageSource.gallery),
+                      ),
+                    ],
+                  ],
                 ),
+              ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
                   child: TextField(
                     controller: _controller,
                     autofocus: true,
                     maxLines: null,
                     minLines: 10,
+                    onChanged: (_) => _onTextChanged(_controller.value),
                     decoration: const InputDecoration(
                       hintText: 'Skriv i Markdown…  (f.eks. - [ ] oppgave, # overskrift)',
                       border: OutlineInputBorder(),

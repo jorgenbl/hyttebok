@@ -1,6 +1,11 @@
 import '../../core/utils/list_equals.dart';
 import 'cabin.dart';
 
+/// Markør for «feltet ble ikke nevnt» i [Book.copyWith] (nødvendig fordi
+/// [Book.coverImage] kan nullstilles, og `null` ellers tolkes som
+/// «behold verdien»).
+const Object _copyWithUnset = Object();
+
 /// En hyttebok – én mappe med Markdown + bilder.
 ///
 /// [slug] er mappenavn (f.eks. `sommehytta`). [intro] er forsiden
@@ -33,7 +38,7 @@ class Book {
     String? slug,
     String? title,
     String? intro,
-    String? coverImage,
+    Object? coverImage = _copyWithUnset,
     List<Cabin>? cabins,
     DateTime? updatedAt,
   }) {
@@ -41,7 +46,9 @@ class Book {
       slug: slug ?? this.slug,
       title: title ?? this.title,
       intro: intro ?? this.intro,
-      coverImage: coverImage ?? this.coverImage,
+      coverImage: identical(coverImage, _copyWithUnset)
+          ? this.coverImage
+          : coverImage as String?,
       cabins: cabins ?? this.cabins,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -119,6 +119,8 @@ void main() {
         ),
       ),
     );
+    // Hopp over velkomst-opplæringen i testen.
+    await tester.runAsync(settingsRepo.markOnboardingSeen);
     final storage = FileStorageService(Directory('${tempDir.path}/books'));
     await tester.runAsync(() => seedBook(storage));
     await tester.pumpWidget(

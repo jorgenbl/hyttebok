@@ -36,6 +36,10 @@ Flutter / Dart med velkjente pakker: `go_router`, `provider`, `freezed`,
 
 ## Kom i gang
 
+Krever [Flutter SDK](https://docs.flutter.dev/get-started/install) (testet mot
+Flutter 3.47.2 / Dart 3.13.2). Uavhengig av plattform: avhengigheter, analyse og
+tester kjører samme sted.
+
 ```bash
 # Avhengigheter
 flutter pub get
@@ -43,21 +47,84 @@ flutter pub get
 # Statisk analyse + tester
 dart analyze
 flutter test
-
-# Kjør appen (velg enhet med -d)
-flutter run
-
-# Bygg for plattformene
-flutter build ios --simulator   # eller: flutter build ipa
-flutter build apk --release     # eller: flutter build appbundle
-flutter build web
-
-# Integrasjonstester (krever tilkoblet enhet/simulator)
-flutter test integration_test -d <enhet>
 ```
 
-Krever [Flutter SDK](https://docs.flutter.dev/get-started/install) (testet mot
-Flutter 3.47.2 / Dart 3.13.2).
+Velg deretter kommando etter hvor du vil kjøre appen.
+
+### Web
+
+```bash
+# Utvikling – hot reload i Chrome
+flutter run -d chrome
+
+# Produksjonsbygg → build/web/
+flutter build web
+```
+
+Webversjonen kjører i nettleseren med to forskjeller fra mobil: bøkene ligger i
+minnet under økten (lukker du fanen forsvinner de – eksporter dem for å ta de
+med), og innstillingene ligger i `localStorage`. «Ta bilde» byttes ut med
+bildegalleriet.
+
+For å forhåndsvise produksjonsbygger lokalt (eller deploye `build/web/` til en
+god som helst statisk host):
+
+```bash
+cd build/web && python3 -m http.server 8080   # → http://localhost:8080
+```
+
+### iOS-simulator
+
+```bash
+# List tilgjengelige simulatorer – kopier UUID-en i parentesen
+xcrun simctl list devices
+
+# Bygg + installer + start (gi simulator-UUID-en til -d)
+flutter run -d <simulator-uuid>
+```
+
+Eller bygg, installer og start manuelt:
+
+```bash
+flutter build ios --simulator
+xcrun simctl install <simulator-uuid> build/ios/iphonesimulator/Runner.app
+xcrun simctl launch <simulator-uuid> com.example.hyttebok
+```
+
+> **Tips:** gi den eksplicitte simulator-UUID-en til `-d`. I enkelte
+> Flutter-build tolkes `-d ios` som et navnefilter og funner ingen enhet.
+
+### Mobil (ekte enhet)
+
+**iOS** – krever Xcode og en Apple Developer-signering (automatisk signing er
+nok). Koble telefonen via USB, godkjenn datamaskinen på telefonen, og tillitt
+utvikler-profilen ved første start (Innstillinger → Generelt → VPN og
+enhetsforvaltning).
+
+```bash
+flutter devices                        # list tilkoblede enheter
+flutter run -d <enhetens-udid>         # bygg + installer + start
+```
+
+**Android** – koble telefonen med USB-debugging slått på:
+
+```bash
+flutter run -d <android-enhet-id>
+```
+
+`compileSdk = 37` er allerede satt i `android/app/build.gradle.kts` – dette kreves
+av plugin-ene `flutter_secure_storage` og `permission_handler_android`. Første
+Android-bygg laster automatisk NDK og SDK-plattform (ca. 15 min).
+
+> Uansett plattform: app-ikonet ligger igjen på hjemmeskjermen etter
+> installasjonen, så du kan lukke appen og åpne den igjen når som helst.
+
+### Integrasjonstester
+
+```bash
+# Krever tilkoblet enhet eller kjørende simulator
+flutter test integration_test -d <enhet-eller-simulator>
+```
 
 ## Brukerveiledning
 

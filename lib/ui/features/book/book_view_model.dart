@@ -140,6 +140,19 @@ class BookViewModel extends ChangeNotifier {
     await _save(b.copyWith(intro: markdown));
   }
 
+  /// Setter et omslagsbilde (relativ sti i boken, f.eks. `images/…`).
+  Future<void> setCoverImage(String src) async {
+    final b = _book!;
+    await _save(b.copyWith(coverImage: src));
+  }
+
+  /// Fjerner omslagsbildet (boka bruker da tegnet hyttemotiv).
+  Future<void> removeCoverImage() async {
+    final b = _book!;
+    if (b.coverImage == null) return;
+    await _save(b.copyWith(coverImage: null));
+  }
+
   Future<void> _save(Book updated) async {
     await _repo.save(updated.copyWith(updatedAt: DateTime.now()));
     await load();
