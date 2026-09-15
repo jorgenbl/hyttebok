@@ -10,6 +10,10 @@
 	<string>Hyttebok trenger tilgang til bildene dine for å legge dem inn i boken.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Hyttebok kan lagre bilder i galleriet.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Hyttebok bruker mikrofonen for diktering, slik at du kan skrive i boken med stemmen.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Hyttebok bruker talegjenkjenning for å skrive inn det du sier i boken.</string>
 	<!-- Tillater klartekst-HTTP kun til localhost (lokale AI-leverandører som Ollama/LM Studio). -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

@@ -1,5 +1,22 @@
 import 'dart:convert';
 
+/// Hvilket formål en AI-profil er satt opp for.
+///
+/// [standard] er grunninnstillingen. De øvrige formålene kan ha en **egen**
+/// profil (annen leverandør/modell/nøkkel); er ingen satt, bruker formålet
+/// standardprofilen.
+enum AiPurpose {
+  standard('Standard'),
+  writing('Skrivehjelp'),
+  structure('Strukturforslag'),
+  images('Bildegenerering');
+
+  const AiPurpose(this.label);
+
+  /// Visningsnavn i UI.
+  final String label;
+}
+
 /// Hvilken type AI-leverandør som er konfigurert.
 ///
 /// [ollama], [lmstudio] og [custom] snakker alle OpenAI-kompatibel API

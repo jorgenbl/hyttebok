@@ -47,12 +47,18 @@ LAGR ALT DU TRENGER VITE
 • Galleri med bilder som følger med boken
 • Historier med dato og forfatter – en loggbok over oppholdene
 
-AI-HJELP TIL STRUKTUREN
+AI-HJELP (VALGFRI)
 
-La en AI foreslå hvilke seksjoner som passer hytta din, ut fra en kort
-beskrivelse. Du kan bruke lokale modeller (f.eks. Ollama) der inget forlater
-enheten, eller et cloud-API hvis du foretrekker det. Alt er valgfritt –
-appen fungerer fullt ut uten AI.
+La AI-en gjøre det lettere:
+
+• Strukturforslag – AI-en foreslår seksjoner som passer hytta din
+• Skrivehjelp – utvid, omskriv eller oppsummer tekst i redigereren
+• Bildegenerering – beskriv et bilde, og AI-en lager og setter det inn
+• Diktering – trykk mikrofonen og snakk; teksten settes inn der cursor står
+
+Bruk lokale modeller (f.eks. Ollama) der inget forlater enheten, eller et
+cloud-API. Hvert formål kan ha sin egen leverandør og modell. Alt er
+valgfritt – appen fungerer fullt ut uten AI.
 
 DIN BOK, DINE REGLER
 
@@ -80,7 +86,8 @@ forsvinner i en skuff – men ligger der den skal, når det gjelder.
 3. Galleri med bilder.
 4. Historier med dato og forfatter.
 5. AI-strukturforslag (dialog med forslag).
-6. PDF-eksport/deling.
+6. AI-bildegenerering (dialog med generert bilde).
+7. PDF-eksport/deling.
 
 ### Privatliv / data
 

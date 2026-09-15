@@ -10,6 +10,7 @@ import file_selector_macos
 import flutter_secure_storage_darwin
 import printing
 import share_plus
+import speech_to_text
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   FilePickerPlugin.register(with: registry.registrar(forPlugin: "FilePickerPlugin"))
@@ -17,4 +18,5 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   FlutterSecureStorageDarwinPlugin.register(with: registry.registrar(forPlugin: "FlutterSecureStorageDarwinPlugin"))
   PrintingPlugin.register(with: registry.registrar(forPlugin: "PrintingPlugin"))
   SharePlusMacosPlugin.register(with: registry.registrar(forPlugin: "SharePlusMacosPlugin"))
+  SpeechToTextPlugin.register(with: registry.registrar(forPlugin: "SpeechToTextPlugin"))
 }

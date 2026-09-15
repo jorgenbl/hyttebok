@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/widgets/skeleton.dart';
@@ -9,8 +10,13 @@ import '../../../data/services/secure_key_store.dart';
 import 'settings_view_model.dart';
 
 /// AI-innstillinger, nådd fra bibliotek-menyen.
+///
+/// [AiPurpose.standard] viser standardprofilen (med oversikt over de
+/// formålsspesifikke profilene); øvrige formål redigerer sin egen profil.
 class SettingsView extends StatelessWidget {
-  const SettingsView({super.key});
+  const SettingsView({super.key, this.purpose = AiPurpose.standard});
+
+  final AiPurpose purpose;
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +25,8 @@ class SettingsView extends StatelessWidget {
     final clientBuilder = context.read<AiClientBuilder>();
     return ChangeNotifierProvider(
       create: (_) =>
-          SettingsViewModel(settings, keyStore, clientBuilder)..load(),
+          SettingsViewModel(settings, keyStore, clientBuilder, purpose: purpose)
+            ..load(),
       child: const _SettingsBody(),
     );
   }
@@ -31,8 +38,15 @@ class _SettingsBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<SettingsViewModel>();
+    final purpose = vm.purpose;
     return Scaffold(
-      appBar: AppBar(title: const Text('Innstillinger')),
+      appBar: AppBar(
+        title: Text(
+          purpose == AiPurpose.standard
+              ? 'Innstillinger'
+              : 'AI – ${purpose.label}',
+        ),
+      ),
       body: !vm.loaded
           ? const SkeletonList()
           : vm.settings == null
@@ -43,6 +57,9 @@ class _SettingsBody extends StatelessWidget {
 }
 
 /// Vises før noen leverandør er valgt: kort forklaring + valg av lokal/cloud.
+///
+/// For et formål med egen profil ([AiPurpose] != [AiPurpose.standard])
+/// forklarer kortet at formålet foreløpig bruker standardprofilen.
 class _IntroCard extends StatelessWidget {
   const _IntroCard({required this.vm});
 
@@ -51,6 +68,9 @@ class _IntroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final purpose = vm.purpose;
+    final isPurpose = purpose != AiPurpose.standard;
+    final standard = context.read<SettingsRepository>().loadAiSettings();
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
@@ -60,22 +80,29 @@ class _IntroCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.auto_awesome),
-                    SizedBox(width: 8),
+                    Icon(
+                      isPurpose ? _iconForPurpose(purpose) : Icons.auto_awesome,
+                    ),
+                    const SizedBox(width: 8),
                     Text(
-                      'AI-hjelp',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                      isPurpose ? 'Ingen egen profil' : 'AI-hjelp',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'AI-en er en valgfri hjelpefunksjon. Den kan kjøre lokalt '
-                  '(Ollama eller LM Studio), slik at dataene aldri forlater '
-                  'enheten, eller mot en cloud-tjeneste (OpenAI eller '
-                  'Anthropic) der dataene sendes til leverandøren.',
+                  isPurpose
+                      ? '${purpose.label} bruker nå '
+                            '${standard == null ? 'ingen AI-profil (ikke konfigurert).' : 'standardprofilen: ${standard.type.label} (${standard.model}).'} '
+                            'Opprett en egen profil nedenfor for å bruke annen '
+                            'leverandør, modell eller nøkkel for dette formålet.'
+                      : 'AI-en er en valgfri hjelpefunksjon. Den kan kjøre lokalt '
+                            '(Ollama eller LM Studio), slik at dataene aldri forlater '
+                            'enheten, eller mot en cloud-tjeneste (OpenAI eller '
+                            'Anthropic) der dataene sendes til leverandøren.',
                 ),
                 const SizedBox(height: 16),
                 FilledButton.tonalIcon(
@@ -100,6 +127,9 @@ class _IntroCard extends StatelessWidget {
             ),
           ),
         ),
+        // Også før standardprofilen er satt kan man gå inn på et formåls
+        // egen profil.
+        if (!isPurpose) const _PurposeProfilesCard(),
       ],
     );
   }
@@ -345,7 +375,169 @@ class _SettingsFormState extends State<_SettingsForm> {
             ],
           ),
         ),
+        if (vm.purpose == AiPurpose.standard)
+          const _PurposeProfilesCard()
+        else
+          _DeleteOwnProfileCard(vm: vm),
       ],
     );
+  }
+}
+
+/// Oversikt over formålsprofilene (bare på standard-skjermen): viser for
+/// hvert formål hvilken profil som er i bruk, og gir inngang til å redigere
+/// den.
+class _PurposeProfilesCard extends StatefulWidget {
+  const _PurposeProfilesCard();
+
+  @override
+  State<_PurposeProfilesCard> createState() => _PurposeProfilesCardState();
+}
+
+class _PurposeProfilesCardState extends State<_PurposeProfilesCard> {
+  static const _purposes = [
+    AiPurpose.writing,
+    AiPurpose.structure,
+    AiPurpose.images,
+  ];
+
+  SettingsRepository? _repo;
+
+  void _onRepoChanged() {
+    // En profil ble endret (muligens fra en formålsrute): les fra nytt.
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final repo = context.read<SettingsRepository>();
+    if (identical(repo, _repo)) return;
+    _repo?.removeListener(_onRepoChanged);
+    _repo = repo;
+    _repo?.addListener(_onRepoChanged);
+  }
+
+  @override
+  void dispose() {
+    _repo?.removeListener(_onRepoChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final repo = context.read<SettingsRepository>();
+    final standard = repo.loadAiSettings();
+    return Card(
+      margin: const EdgeInsets.all(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Text(
+                'Profiler per formål',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              child: Text(
+                'Hvert formål kan ha sin egen leverandør, modell og nøkkel. '
+                'Uten egen profil brukes standardprofilen.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.outline,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            for (final p in _purposes)
+              ListTile(
+                leading: Icon(_iconForPurpose(p)),
+                title: Text(p.label),
+                subtitle: Text(_effectiveProfileDescription(p, repo, standard)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/settings/ai/${p.name}'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Hvilken profil [p] faktisk bruker, til tekst i oversikten over profiler.
+String _effectiveProfileDescription(
+  AiPurpose p,
+  SettingsRepository repo,
+  AiSettings? standard,
+) {
+  final own = repo.loadAiProfile(p);
+  if (own != null) return 'Egen: ${own.type.label} (${own.model})';
+  if (standard != null) {
+    return 'Standard: ${standard.type.label} (${standard.model})';
+  }
+  return 'Ikke konfigurert';
+}
+
+/// Fjerne egen profil for formålet, slik at standardprofilen brukes igjen.
+class _DeleteOwnProfileCard extends StatelessWidget {
+  const _DeleteOwnProfileCard({required this.vm});
+
+  final SettingsViewModel vm;
+
+  Future<void> _confirm(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Fjerne egen profil?'),
+        content: Text(
+          '«${vm.purpose.label}» vil da bruke standardprofilen. '
+          'API-nøkkelen for profilen slettes.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Fortsett'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Fjern'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && context.mounted) {
+      await vm.deleteOwnProfile();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.all(12),
+      child: ListTile(
+        leading: const Icon(Icons.delete_outline),
+        title: const Text('Fjern egen profil'),
+        subtitle: Text('«${vm.purpose.label}» bruker da standardprofilen.'),
+        onTap: () => _confirm(context),
+      ),
+    );
+  }
+}
+
+/// Ikon for en AI-profilformål i oversikten.
+IconData _iconForPurpose(AiPurpose p) {
+  switch (p) {
+    case AiPurpose.standard:
+      return Icons.auto_awesome;
+    case AiPurpose.writing:
+      return Icons.edit_outlined;
+    case AiPurpose.structure:
+      return Icons.list_alt;
+    case AiPurpose.images:
+      return Icons.image_outlined;
   }
 }

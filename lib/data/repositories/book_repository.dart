@@ -265,6 +265,20 @@ class BookRepository {
     return _storage.saveImage(bookSlug, bytes, filename: _uniqueImageName(ext));
   }
 
+  /// Lagrer et minneste bilde [bytes] (f.eks. AI-generert) i boken og
+  /// returnerer den relative stien (f.eks. `images/img-…-….png`).
+  Future<String> saveGeneratedImage(
+    String bookSlug,
+    Uint8List bytes, {
+    String extension = 'png',
+  }) async {
+    return _storage.saveImage(
+      bookSlug,
+      bytes,
+      filename: _uniqueImageName('.$extension'),
+    );
+  }
+
   /// Lesbar versjon av [BookStorage.readImageBytes]: returnerer `null` i
   /// stedet for å kaste [ImageNotFound], og ignorerer ekstern (http/data)
   /// URL-er. Brukes av Markdown-forhåndsvisning.

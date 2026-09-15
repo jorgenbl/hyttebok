@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../data/repositories/settings_repository.dart';
 import '../../../data/services/ai_client.dart';
+import '../../../data/services/ai_settings.dart';
 import '../../../data/services/secure_key_store.dart';
 import 'ai_assistant_view_model.dart';
 
@@ -52,6 +53,7 @@ class _AiWritingDialogState extends State<_AiWritingDialog> {
       context.read<SettingsRepository>(),
       context.read<SecureKeyStore>(),
       context.read<AiClientBuilder>(),
+      purpose: AiPurpose.writing,
     )..addListener(_onVmChanged);
     _vm.run(system: widget.system, user: widget.user);
   }

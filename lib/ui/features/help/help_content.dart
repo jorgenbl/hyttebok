@@ -83,6 +83,8 @@ I redigereren kan du legge til bilder:
 
 - **Kameraet** (mobil) – ta et bilde nå.
 - **Galleriet** – velg fra telefonens/PC-en sin bildebibliotek.
+- **Generer bilde (AI)** – la AI lage et bilde fra en tekstbeskrivelse
+  (krever AI-oppsett, se avsnitt 6).
 
 Bildene lagres sammen med boken og følger med ved eksport.
 
@@ -128,9 +130,32 @@ AI-en er helt valgfri – appen fungerer fullt ut uten den.
 - **Strukturforslag** (på hyttesiden: + → «Foreslå struktur (AI)») – skriv
   en kort beskrivelse, og AI-en foreslår passende seksjoner. Godkjenn dem
   én og én, eller forkast hele.
-- **Skrivehjelp** (i redigereren: ✨-ikonet) – utvid, omskriv eller
+- **Skrivehjelp** (i redigereren: ✨-ikonet øverst) – utvid, omskriv eller
   oppsummer markert tekst, eller generer en rutineliste basert på
   beskrivelsen.
+- **Bildegenerering** (i redigereren: ✨-ikonet i verktøylinjen,
+  «Generer bilde (AI)») – skriv en kort beskrivelse, og AI-en lager et
+  bilde. Forhåndsvis det og trykk **Innsett i teksten** for å legge det inn
+  i boken. Krever en leverandør som kan generere bilder (f.eks. OpenAI eller
+  en lokal SD WebUI-instans).
+- **Diktering** (i redigereren: mikrofon-ikonet i verktøylinjen) – trykk på
+  mikrofonen og snakk; det du sier settes inn i teksten der cursor står.
+  Bruker enhetens egen talegjenkjenning (norsk) og krever mikrofon-rettighet –
+  ingen AI-leverandør eller nøkkel trengs.
+
+### Propler per formål
+
+Standardprofilen brukes av alle AI-funksjonene. Vil du bruke forskjellige
+leverandører eller modeller for forskjellige formål, kan du gi hvert formål
+sin egen profil: **Skrivehjelp**, **Strukturforslag** og **Bildegenerering**.
+
+- I **Innstillinger → AI** finnes kortet **Profiler per formål**. Trykk et
+  formål for å åpne sin egen side med leverandør, base-URL, modell og
+  API-nøkkel.
+- Hvert formål kan ha sin egen API-nøkkel. Er det ikke satt en egen profil
+  for et formål, brukes standardprofilen.
+- **Fjern egen profil** sletter profilen (og nøkkelen) for formålet og går
+  tilbake til standardprofilen.
 
 ## 7. Eksport og import
 
@@ -156,8 +181,8 @@ delingsarket åpnes.
 
 Åpnes fra biblioteket (tannhjul-ikonet).
 
-- **AI** – leverandør, base-URL, modell, API-nøkkel, test tilkobling
-  (se avsnitt 6).
+- **AI** – leverandør, base-URL, modell, API-nøkkel, test tilkobling og
+  profiler per formål (se avsnitt 6).
 - **Tema** – lyst/mørkt/system (også tilgjengelig direkte fra biblioteket).
 
 ## 9. Webversjonen

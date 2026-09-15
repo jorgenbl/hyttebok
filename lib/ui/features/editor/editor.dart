@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -7,9 +9,12 @@ import 'package:provider/provider.dart';
 import '../../../core/widgets/markdown_preview.dart';
 import '../../../data/repositories/book_repository.dart';
 import '../../../data/repositories/settings_repository.dart';
+import '../../../data/services/ai_settings.dart';
 import '../../../data/services/image_picker_service.dart';
+import '../../../data/services/speech_to_text_service.dart';
 import '../../../domain/ai/prompts.dart';
 import '../../../domain/models/section_type.dart';
+import '../../../ui/features/ai/image_dialog.dart';
 import '../../../ui/features/ai/writing_dialog.dart';
 
 /// Input for editor-ruten: hva som redigeres og hvordan.
@@ -104,6 +109,15 @@ class _EditorViewState extends State<EditorView>
   /// nettopp gjorde (Enter/Backspace) uten å avhenge av tastehendelser.
   late TextEditingValue _prevValue;
 
+  /// Dikteringstjenesten; leses lat når dikteringsknappen trykkes (editoren
+  /// fungerer uten den, f.eks. i tester som bare øver på listene). Holdes
+  /// slik at [dispose] kan stoppe en pågående sesjon.
+  SpeechToTextService? _speech;
+
+  /// `true` mens en dikteringsøkt kjører; knappen vises aktiv og kan ikke
+  /// trykkes på nytt.
+  bool _dictating = false;
+
   @override
   void initState() {
     super.initState();
@@ -114,9 +128,53 @@ class _EditorViewState extends State<EditorView>
 
   @override
   void dispose() {
+    // Avslutt en pågående mikrofon-sesjon når editoren lukkes.
+    if (_dictating) {
+      final speech = _speech;
+      if (speech != null) unawaited(speech.stop());
+    }
     _controller.dispose();
     _tabs.dispose();
     super.dispose();
+  }
+
+  /// Dikterer med stemmen og setter den anerkjente teksten inn på
+  /// cursorposisjonen (med ett mellomrom foran hvis det ligger tekst der).
+  Future<void> _dictate() async {
+    if (_dictating) return;
+    final speech = context.read<SpeechToTextService>();
+    _speech = speech;
+    setState(() => _dictating = true);
+    try {
+      final text = await speech.listen();
+      if (text == null || text.isEmpty || !mounted) return;
+      _insertDictated(text);
+    } on DictationException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _dictating = false);
+    }
+  }
+
+  /// Setter inn diktert tekst på cursorposisjonen; legger til ett mellomrom
+  /// foran dersom det forrige tegnet ikke er blankt (eller tekst er tom).
+  void _insertDictated(String text) {
+    final controller = _controller;
+    final sel = controller.selection;
+    final end = sel.end < 0 ? controller.text.length : sel.end;
+    final start = sel.start < 0 ? end : sel.start;
+    final before = controller.text.substring(0, start);
+    final after = controller.text.substring(end);
+    final needsSpace =
+        before.isNotEmpty && !RegExp(r'\s').hasMatch(before[before.length - 1]);
+    final insert = (needsSpace ? ' ' : '') + text;
+    controller.value = TextEditingValue(
+      text: before + insert + after,
+      selection: TextSelection.collapsed(offset: before.length + insert.length),
+    );
   }
 
   /// Smarte lister: Enter fortsetter en liste-post (ny markør, nummer øker),
@@ -225,6 +283,30 @@ class _EditorViewState extends State<EditorView>
       return;
     }
     if (!context.mounted) return;
+    _insertAtCursor('![${relative.split('/').last}]($relative)\n');
+  }
+
+  /// Genererer et bilde med AI (bildeprofilen, ellers standardprofilen),
+  /// lagrer det i boken og setter inn en Markdown-referanse på cursorposi-
+  /// sjonen.
+  Future<void> _generateAiImage(BuildContext context) async {
+    final bookSlug = widget.input.bookSlug;
+    if (bookSlug == null) return;
+    final repo = context.read<SettingsRepository>();
+    final settings =
+        repo.loadAiProfile(AiPurpose.images) ?? repo.loadAiSettings();
+    if (settings == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'AI er ikke konfigurert. Åpne Innstillinger → AI → Bildegenerering.',
+          ),
+        ),
+      );
+      return;
+    }
+    final relative = await showAiImageDialog(context, bookSlug: bookSlug);
+    if (relative == null || !context.mounted) return;
     _insertAtCursor('![${relative.split('/').last}]($relative)\n');
   }
 
@@ -347,7 +429,11 @@ class _EditorViewState extends State<EditorView>
   /// AI-skriverhjelp: utvid/omskriv/oppsummer på markert (ellers hele)
   /// tekst, eller generer en rutineliste basert på teksten.
   Future<void> _aiAction(String action) async {
-    final settings = context.read<SettingsRepository>().loadAiSettings();
+    // Skrivehjelpen kjører på formålet [AiPurpose.writing]: egen profil om
+    // satt, ellers standardprofilen.
+    final repo = context.read<SettingsRepository>();
+    final settings =
+        repo.loadAiProfile(AiPurpose.writing) ?? repo.loadAiSettings();
     if (settings == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -431,6 +517,7 @@ class _EditorViewState extends State<EditorView>
   @override
   Widget build(BuildContext context) {
     final bookSlug = widget.input.bookSlug;
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.input.title),
@@ -500,6 +587,14 @@ class _EditorViewState extends State<EditorView>
                       icon: const Icon(Icons.format_list_numbered),
                       onPressed: () => _applyList(_ListKind.numbered),
                     ),
+                    IconButton(
+                      tooltip: _dictating ? 'Stemmen lyttes på …' : 'Diktering',
+                      icon: Icon(
+                        Icons.mic,
+                        color: _dictating ? theme.colorScheme.primary : null,
+                      ),
+                      onPressed: _dictating ? null : _dictate,
+                    ),
                     const Spacer(),
                     if (bookSlug != null) ...[
                       // Web har ingen kamera-plugin; filplukkeren dekkes
@@ -516,6 +611,11 @@ class _EditorViewState extends State<EditorView>
                         icon: const Icon(Icons.photo_library_outlined),
                         onPressed: () =>
                             _addImage(context, ImageSource.gallery),
+                      ),
+                      IconButton(
+                        tooltip: 'Generer bilde (AI)',
+                        icon: const Icon(Icons.auto_awesome),
+                        onPressed: () => _generateAiImage(context),
                       ),
                     ],
                   ],

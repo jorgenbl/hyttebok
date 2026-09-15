@@ -4,10 +4,12 @@ import 'package:provider/provider.dart';
 import '../data/repositories/book_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../data/services/ai_client.dart';
+import '../data/services/ai_image_client.dart';
 import '../data/services/file_picker_service.dart';
 import '../data/services/image_picker_service.dart';
 import '../data/services/secure_key_store.dart';
 import '../data/services/share_service.dart';
+import '../data/services/speech_to_text_service.dart';
 import '../domain/templates/cabin_template.dart';
 import '../ui/features/onboarding/onboarding.dart';
 import 'router.dart';
@@ -18,8 +20,9 @@ import 'theme_preference.dart';
 /// eller tester) og bygger router + tema.
 ///
 /// [imagePicker], [share], [filePicker], [cabinTemplates], [settings],
-/// [secureKeyStore] og [aiClientBuilder] kan injiseres i tester; i produksjon
-/// brukes standardimplementasjonene.
+/// [secureKeyStore], [aiClientBuilder], [aiImageClientBuilder] og
+/// [speechToText] kan injiseres i tester; i produksjon brukes
+/// standardimplementasjonene.
 class HyttebokApp extends StatelessWidget {
   const HyttebokApp({
     super.key,
@@ -31,6 +34,8 @@ class HyttebokApp extends StatelessWidget {
     this.settings,
     this.secureKeyStore,
     this.aiClientBuilder,
+    this.aiImageClientBuilder,
+    this.speechToText,
   });
 
   final BookRepository repository;
@@ -46,6 +51,10 @@ class HyttebokApp extends StatelessWidget {
   final SettingsRepository? settings;
   final SecureKeyStore? secureKeyStore;
   final AiClientBuilder? aiClientBuilder;
+  final AiImageClientBuilder? aiImageClientBuilder;
+
+  /// Tale-diktering i editoren. Standard: [SpeechToTextService].
+  final SpeechToTextService? speechToText;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +75,7 @@ class HyttebokApp extends StatelessWidget {
           create: (_) => ThemePreference(),
         ),
         if (settings != null)
-          Provider<SettingsRepository>.value(value: settings!),
+          ChangeNotifierProvider<SettingsRepository>.value(value: settings!),
         Provider<SecureKeyStore>.value(
           value: secureKeyStore ?? FlutterSecureKeyStore(),
         ),
@@ -74,6 +83,14 @@ class HyttebokApp extends StatelessWidget {
           value:
               aiClientBuilder ??
               ((s, k) => AiClientFactory.create(s, apiKey: k)),
+        ),
+        Provider<AiImageClientBuilder>.value(
+          value:
+              aiImageClientBuilder ??
+              ((s, k) => AiImageClientFactory.create(s, apiKey: k)),
+        ),
+        Provider<SpeechToTextService>.value(
+          value: speechToText ?? SpeechToTextService(),
         ),
       ],
       child: _HyttebokMaterialApp(settings: settings),

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/errors.dart';
 import '../../../data/repositories/settings_repository.dart';
 import '../../../data/services/ai_client.dart';
+import '../../../data/services/ai_settings.dart';
 import '../../../data/services/secure_key_store.dart';
 
 /// Fase i en AI-kjøring.
@@ -16,12 +17,22 @@ enum AiRunState { idle, running, done, error }
 /// Bygger klient fra de gjeldende innstillingene, streamer svar-teksten
 /// inkrementelt (én [notifyListeners] per chunk) og kan avbrytes til enhver
 /// tid. Instanser er en-gangs per dialog: opprett én per dialog/rute.
+///
+/// [purpose] velger hvilken AI-profil som brukes: formålet kan ha en egen
+/// profil (annen leverandør/modell/nøkkel), og faller ellers tilbake til
+/// standardprofilen.
 class AiAssistantViewModel extends ChangeNotifier {
-  AiAssistantViewModel(this._settings, this._keyStore, this._clientBuilder);
+  AiAssistantViewModel(
+    this._settings,
+    this._keyStore,
+    this._clientBuilder, {
+    this.purpose = AiPurpose.standard,
+  });
 
   final SettingsRepository _settings;
   final SecureKeyStore _keyStore;
   final AiClientBuilder _clientBuilder;
+  final AiPurpose purpose;
 
   AiRunState _state = AiRunState.idle;
   String _text = '';
@@ -35,6 +46,11 @@ class AiAssistantViewModel extends ChangeNotifier {
   String get text => _text;
   String get errorMessage => _errorMessage;
 
+  /// Gjeldende profil for [purpose]: egen profil om satt, ellers
+  /// standardprofilen. `null` betyr «AI er ikke konfigurert».
+  AiSettings? get effectiveSettings =>
+      _settings.loadAiProfile(purpose) ?? _settings.loadAiSettings();
+
   /// Kjører en prompt ([system] + [user]). Eventuelt pågående kjøring
   /// avbrytes først. [model] kan overstyre den konfigurerte modellen.
   Future<void> run({
@@ -44,16 +60,26 @@ class AiAssistantViewModel extends ChangeNotifier {
   }) async {
     _cancelStream();
 
-    final settings = _settings.loadAiSettings();
+    final settings = effectiveSettings;
     if (settings == null) {
       _fail('AI er ikke konfigurert. Åpne Innstillinger → AI.');
       return;
     }
-    final apiKey = (await _keyStore.readKey(kAiApiKeyKey)) ?? '';
+    // Bruk formålets egen nøkkelslot når det kjører på en egen profil,
+    // ellers standardprofilens slot.
+    final hasOwn =
+        purpose != AiPurpose.standard &&
+        _settings.loadAiProfile(purpose) != null;
+    final apiKey =
+        (await _keyStore.readKey(
+          hasOwn ? aiApiKeyKeyFor(purpose) : kAiApiKeyKey,
+        )) ??
+        '';
     if (_disposed) return;
     if (settings.needsApiKey && apiKey.isEmpty) {
       _fail(
-        'Ingen API-nøkkel er satt. Skriv den inn under Innstillinger → AI.',
+        'Ingen API-nøkkel er satt. Skriv den inn under '
+        '${purpose == AiPurpose.standard ? 'Innstillinger → AI' : 'Innstillinger → AI → ${purpose.label}'}.',
       );
       return;
     }

@@ -3,6 +3,10 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Kamera er ikke obligatorisk slik at appen installeres uten kamera. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- Mikrofon for diktering i editoren. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Mikrofon er ikke obligatorisk slik at appen installeres uten mikrofon. -->
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <application
         android:label="hyttebok"
         android:name="${applicationName}"

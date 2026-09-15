@@ -57,6 +57,7 @@ class _AiStructureDialogState extends State<_AiStructureDialog> {
       context.read<SettingsRepository>(),
       context.read<SecureKeyStore>(),
       context.read<AiClientBuilder>(),
+      purpose: AiPurpose.structure,
     )..addListener(_onVmChanged);
     _description = TextEditingController(text: widget.description);
   }
@@ -88,8 +89,9 @@ class _AiStructureDialogState extends State<_AiStructureDialog> {
   }
 
   void _generate() {
-    final settings = context.read<SettingsRepository>().loadAiSettings();
-    final base = settings?.systemPrompt ?? kDefaultAiSystemPrompt;
+    // Systemprompten kommer fra det gjeldende formålet: egen
+    // strukturforslagsprofil om satt, ellers standardprofilen.
+    final base = _vm.effectiveSettings?.systemPrompt ?? kDefaultAiSystemPrompt;
     _parsed = null;
     _parseChecked = false;
     final text = _description.text.trim();

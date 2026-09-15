@@ -16,14 +16,27 @@ enum AiTestState { idle, running, success, failure }
 /// Hver endring lagres automatisk: ikke-sensitivt til [SettingsRepository],
 /// API-nøkkelen til [SecureKeyStore]. Lagringer serieres slik at raske
 /// tastetrykk ikke konkurrerer om filen.
+///
+/// [purpose] bestemmer hvilken profil som redigeres: [AiPurpose.standard]
+/// redigerer «ai»-nøkkelen, øvrige formål redigerer sin egen profil
+/// (`aiProfiles.<purpose>` + egen nøkkelslot).
 class SettingsViewModel extends ChangeNotifier {
-  SettingsViewModel(this._repo, this._keyStore, this._clientBuilder) {
-    _settings = _repo.loadAiSettings();
+  SettingsViewModel(
+    this._repo,
+    this._keyStore,
+    this._clientBuilder, {
+    this.purpose = AiPurpose.standard,
+  }) {
+    _settings = _repo.loadAiProfile(purpose);
   }
 
   final SettingsRepository _repo;
   final SecureKeyStore _keyStore;
   final AiClientBuilder _clientBuilder;
+  final AiPurpose purpose;
+
+  /// API-nøkkel-slotten for den redigerede profilen.
+  String get _keySlot => aiApiKeyKeyFor(purpose);
 
   AiSettings? _settings;
   String _apiKey = '';
@@ -43,7 +56,7 @@ class SettingsViewModel extends ChangeNotifier {
   /// Laster API-nøkkel fra sikker lagring. Innstillinger er allerede lest i
   /// konstruktoren.
   Future<void> load() async {
-    _apiKey = await _keyStore.readKey(kAiApiKeyKey) ?? '';
+    _apiKey = await _keyStore.readKey(_keySlot) ?? '';
     _loaded = true;
     notifyListeners();
   }
@@ -117,25 +130,39 @@ class SettingsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Serierer persistering av innstillinger + nøkkel.
+  /// Serierer persistering av innstillinger + nøkkel (i profilen sin slot).
   void _schedulePersist() {
     if (_disposed) return;
     final current = _settings;
     final key = _apiKey;
+    final slot = _keySlot;
     _persistChain = _persistChain
         .then((_) async {
           if (current != null) {
-            await _repo.saveAiSettings(current);
+            await _repo.saveAiProfile(purpose, current);
           }
           if (key.isEmpty) {
-            await _keyStore.deleteKey(kAiApiKeyKey);
+            await _keyStore.deleteKey(slot);
           } else {
-            await _keyStore.writeKey(kAiApiKeyKey, key);
+            await _keyStore.writeKey(slot, key);
           }
         })
         .catchError((Object _) {
           // Feil ved lagring av innstillinger skal ikke knuse UI-et.
         });
+  }
+
+  /// Fjerner formålets egen profil og API-nøkkel slik at det igjen bruker
+  /// standardprofilen. Gjør ingenting for standardprofilen.
+  Future<void> deleteOwnProfile() async {
+    if (purpose == AiPurpose.standard) return;
+    await _repo.deleteAiProfile(purpose);
+    await _keyStore.deleteKey(_keySlot);
+    _settings = null;
+    _apiKey = '';
+    _testState = AiTestState.idle;
+    _testMessage = '';
+    notifyListeners();
   }
 
   bool _disposed = false;

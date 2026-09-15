@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../data/services/ai_settings.dart';
 import '../ui/features/book/book_search_view.dart';
 import '../ui/features/book/book_view.dart';
 import '../ui/features/cabin/cabin_view.dart';
@@ -18,6 +19,18 @@ GoRouter buildRouter() {
       GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsView(),
+      ),
+      // Egen AI-profil for et formål (skrivehjelp/strukturforslag/
+      // bildegenerering). Ukjent formål behandles som standard.
+      GoRoute(
+        path: '/settings/ai/:purpose',
+        builder: (context, state) {
+          final purpose = AiPurpose.values.firstWhere(
+            (p) => p.name == state.pathParameters['purpose'],
+            orElse: () => AiPurpose.standard,
+          );
+          return SettingsView(purpose: purpose);
+        },
       ),
       GoRoute(path: '/help', builder: (context, state) => const HelpView()),
       GoRoute(

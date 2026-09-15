@@ -68,4 +68,115 @@ void main() {
     expect(loaded, isNotNull);
     expect(loaded!.type, AiProviderType.ollama);
   });
+
+  test('saveAiSettings beholder øvrige nøkkel (onboardingShown)', () async {
+    await repo.markOnboardingSeen();
+    await repo.saveAiSettings(
+      const AiSettings(
+        type: AiProviderType.ollama,
+        baseUrl: 'http://localhost:11434/v1',
+        model: 'llama3.1',
+      ),
+    );
+    expect(repo.hasSeenOnboarding(), isTrue);
+    expect(repo.loadAiSettings(), isNotNull);
+  });
+
+  group('AI-profiler per formål', () {
+    const standard = AiSettings(
+      type: AiProviderType.openai,
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-4o-mini',
+    );
+    const writingOwn = AiSettings(
+      type: AiProviderType.ollama,
+      baseUrl: 'http://localhost:11434/v1',
+      model: 'llama3.1',
+    );
+
+    test('round-trip: lagre og laste egen profil', () async {
+      await repo.saveAiProfile(AiPurpose.writing, writingOwn);
+      expect(repo.loadAiProfile(AiPurpose.writing), writingOwn);
+    });
+
+    test('loadAiProfile(standard) er lik loadAiSettings', () async {
+      await repo.saveAiSettings(standard);
+      expect(repo.loadAiProfile(AiPurpose.standard), standard);
+      expect(repo.loadAiProfile(AiPurpose.standard), repo.loadAiSettings());
+    });
+
+    test('ingen egen profil → null (fallback avgjøres av kaller)', () {
+      expect(repo.loadAiProfile(AiPurpose.writing), isNull);
+      expect(repo.loadAiProfile(AiPurpose.structure), isNull);
+      expect(repo.loadAiProfile(AiPurpose.images), isNull);
+    });
+
+    test('egen profil isoleres fra standardprofilen', () async {
+      await repo.saveAiSettings(standard);
+      await repo.saveAiProfile(AiPurpose.writing, writingOwn);
+      expect(repo.loadAiSettings(), standard);
+      expect(repo.loadAiProfile(AiPurpose.writing), writingOwn);
+      expect(repo.loadAiProfile(AiPurpose.structure), isNull);
+    });
+
+    test('flere formål kan ha hver sin profil', () async {
+      await repo.saveAiProfile(AiPurpose.writing, writingOwn);
+      await repo.saveAiProfile(
+        AiPurpose.structure,
+        const AiSettings(
+          type: AiProviderType.lmstudio,
+          baseUrl: 'http://localhost:1234/v1',
+          model: 'local-model',
+        ),
+      );
+      expect(repo.loadAiProfile(AiPurpose.writing), writingOwn);
+      expect(
+        repo.loadAiProfile(AiPurpose.structure)!.type,
+        AiProviderType.lmstudio,
+      );
+    });
+
+    test('lagre egen profil beholder standardprofilen og onboarding', () async {
+      await repo.markOnboardingSeen();
+      await repo.saveAiSettings(standard);
+      await repo.saveAiProfile(AiPurpose.writing, writingOwn);
+      expect(repo.hasSeenOnboarding(), isTrue);
+      expect(repo.loadAiSettings(), standard);
+      expect(repo.loadAiProfile(AiPurpose.writing), writingOwn);
+    });
+
+    test('deleteAiProfile fjerner bare den aktuelle profilen', () async {
+      await repo.saveAiProfile(AiPurpose.writing, writingOwn);
+      await repo.saveAiProfile(AiPurpose.images, standard);
+      await repo.deleteAiProfile(AiPurpose.writing);
+      expect(repo.loadAiProfile(AiPurpose.writing), isNull);
+      expect(repo.loadAiProfile(AiPurpose.images), standard);
+    });
+
+    test('deleteAiProfile fjerner tom «aiProfiles»-nøkkel', () async {
+      await repo.saveAiProfile(AiPurpose.writing, writingOwn);
+      await repo.deleteAiProfile(AiPurpose.writing);
+      final raw = File('${tempDir.path}/settings.json').readAsStringSync();
+      expect(raw, isNot(contains('aiProfiles')));
+    });
+
+    test('deleteAiProfile er et no-op for standardprofilen', () async {
+      await repo.saveAiSettings(standard);
+      await repo.deleteAiProfile(AiPurpose.standard);
+      expect(repo.loadAiSettings(), standard);
+    });
+
+    test('deleteAiProfile uten egen profil gjør ingenting', () async {
+      await repo.deleteAiProfile(AiPurpose.writing);
+      expect(repo.loadAiProfile(AiPurpose.writing), isNull);
+    });
+
+    test('gammalt single-key-format lastes fortsatt', () {
+      File('${tempDir.path}/settings.json').writeAsStringSync('''
+{"ai": {"type": "anthropic", "baseUrl": "https://api.anthropic.com/v1", "model": "claude-sonnet-5"}}
+''');
+      expect(repo.loadAiSettings()!.type, AiProviderType.anthropic);
+      expect(repo.loadAiProfile(AiPurpose.writing), isNull);
+    });
+  });
 }

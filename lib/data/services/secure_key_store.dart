@@ -1,7 +1,14 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// Nøkkel i sikker lagring for AI-API-nøkkelen.
+import 'ai_settings.dart';
+
+/// Nøkkel i sikker lagring for AI-API-nøkkelen (standardprofilen).
 const String kAiApiKeyKey = 'ai.apiKey';
+
+/// Nøkkel i sikker lagring for API-nøkkelen til [purpose]'s profil.
+/// Standardprofilen deler [kAiApiKeyKey]; øvrige formål har hver sin slot.
+String aiApiKeyKeyFor(AiPurpose purpose) =>
+    purpose == AiPurpose.standard ? kAiApiKeyKey : 'ai.apiKey.${purpose.name}';
 
 /// Abstraksjon over sikker lagring (Keychain på iOS, Keystore på Android).
 ///
